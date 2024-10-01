@@ -2,24 +2,26 @@
 # Overleaf Base Image (sharelatex/sharelatex-base)
 # --------------------------------------------------
 
-FROM phusion/baseimage:focal-1.2.0 AS sharelatex-base
+FROM phusion/baseimage:jammy-1.0.4 AS sharelatex-base
 
 # Makes sure LuaTex cache is writable
 # -----------------------------------
-ENV TEXMFVAR=/var/lib/sharelatex/tmp/texmf-var
+ENV TEXMFVAR=/var/lib/overleaf/tmp/texmf-var
 
 # Update to ensure dependencies are updated
 # ------------------------------------------
-ENV REBUILT_AFTER="2023-11-02"
+ENV REBUILT_AFTER="2024-07-09"
 
 # Install dependencies
 # --------------------
 RUN apt-get update \
 &&  apt-get install -y \
-      build-essential wget net-tools unzip time imagemagick optipng strace nginx git python zlib1g-dev libpcre3-dev gettext-base libwww-perl ca-certificates curl gnupg \
+      unattended-upgrades \
+      build-essential wget net-tools unzip time imagemagick optipng strace nginx git python3 python-is-python3 zlib1g-dev libpcre3-dev gettext-base libwww-perl ca-certificates curl gnupg \
       qpdf \
       aspell aspell-en aspell-af aspell-am aspell-ar aspell-ar-large aspell-bg aspell-bn aspell-br aspell-ca aspell-cs aspell-cy aspell-da aspell-de aspell-de-1901 aspell-el aspell-eo aspell-es aspell-et aspell-eu-es aspell-fa aspell-fo aspell-fr aspell-ga aspell-gl-minimos aspell-gu aspell-he aspell-hi aspell-hr aspell-hsb aspell-hu aspell-hy aspell-id aspell-is aspell-it aspell-kk aspell-kn aspell-ku aspell-lt aspell-lv aspell-ml aspell-mr aspell-nl aspell-no aspell-nr aspell-ns  aspell-pa aspell-pl aspell-pt aspell-pt-br aspell-ro aspell-ru aspell-sk aspell-sl aspell-ss aspell-st aspell-sv aspell-tl aspell-tn aspell-ts aspell-uk aspell-uz aspell-xh aspell-zu \
-    \
+# upgrade base-image, batch all the upgrades together, rather than installing them on-by-one (which is slow!)
+&&  unattended-upgrade --verbose --no-minimal-upgrade-steps \
 # install Node.js https://github.com/nodesource/distributions#nodejs
 &&  mkdir -p /etc/apt/keyrings \
 &&  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -30,8 +32,7 @@ RUN apt-get update \
 &&  rm -rf \
 # We are adding a custom nginx config in the main Dockerfile.
       /etc/nginx/nginx.conf \
-      /etc/nginx/sites-enabled/default \
-      /var/lib/apt/lists/*
+      /etc/nginx/sites-enabled/default
 
 # Install TexLive
 # ---------------
@@ -74,15 +75,15 @@ RUN mkdir /install-tl-unx \
 &&  rm -rf /install-tl-unx
 
 
-# Set up sharelatex user and home directory
+# Set up overleaf user and home directory
 # -----------------------------------------
-RUN adduser --system --group --home /overleaf --no-create-home sharelatex && \
-	mkdir -p /var/lib/sharelatex && \
-	chown www-data:www-data /var/lib/sharelatex && \
-	mkdir -p /var/log/sharelatex && \
-	chown www-data:www-data /var/log/sharelatex && \
-	mkdir -p /var/lib/sharelatex/data/template_files && \
-	chown www-data:www-data /var/lib/sharelatex/data/template_files
+RUN adduser --system --group --home /overleaf --no-create-home overleaf && \
+	mkdir -p /var/lib/overleaf && \
+	chown www-data:www-data /var/lib/overleaf && \
+	mkdir -p /var/log/overleaf && \
+	chown www-data:www-data /var/log/overleaf && \
+	mkdir -p /var/lib/overleaf/data/template_files && \
+	chown www-data:www-data /var/lib/overleaf/data/template_files
 
 # ---------------------------------------------
 # Overleaf Community Edition (overleaf/overleaf)
@@ -104,14 +105,14 @@ ADD services/ /overleaf/services/
 # -----------------------
 ADD patches/ /overleaf/patches
 
-# Install npm dependencies and build webpack assets
+
+# Install npm dependencies
 # ------------------------
-RUN --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/root/.npm \
-    --mount=type=cache,target=/overleaf/services/web/node_modules/.cache,id=server-ce-webpack-cache \
-    --mount=type=tmpfs,target=/tmp true \
-&&  node genScript install | bash \
-&&  node genScript compile | bash
+RUN node genScript install | bash
+
+# Compile
+# --------------------
+RUN node genScript compile | bash
 
 # Copy runit service startup scripts to its location
 # --------------------------------------------------
