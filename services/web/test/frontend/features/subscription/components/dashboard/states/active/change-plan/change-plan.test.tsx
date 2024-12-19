@@ -52,16 +52,17 @@ describe('<ChangePlanModal />', function () {
     const changeToPlanButtons = screen.queryAllByRole('button', {
       name: 'Change to this plan',
     })
-    expect(changeToPlanButtons.length).to.equal(plans.length - 1)
+    expect(changeToPlanButtons.length).to.equal(plans.length - 3) // excludes paid-personal and paid-personal-annual
     screen.getByText('Your plan')
 
     const annualPlans = plans.filter(plan => plan.annual)
     expect(screen.getAllByText('/ year', { exact: false }).length).to.equal(
-      annualPlans.length
-    )
+      annualPlans.length - 1
+    ) // excludes paid-personal-annual
+
     expect(screen.getAllByText('/ month', { exact: false }).length).to.equal(
-      plans.length - annualPlans.length
-    )
+      plans.length - annualPlans.length - 1
+    ) // excludes paid-personal
 
     expect(screen.queryByText('loading', { exact: false })).to.be.null
   })
@@ -386,7 +387,7 @@ describe('<ChangePlanModal />', function () {
 
       expect(within(modal).queryByText('tax', { exact: false })).to.be.null
 
-      within(modal).getByRole('button', { name: 'Upgrade Now' })
+      within(modal).getByRole('button', { name: 'Upgrade now' })
 
       within(modal).getByRole('button', {
         name: 'Need more than 50 licenses? Please get in touch',
@@ -522,7 +523,7 @@ describe('<ChangePlanModal />', function () {
 
       await openModal()
 
-      const buttonConfirm = screen.getByRole('button', { name: 'Upgrade Now' })
+      const buttonConfirm = screen.getByRole('button', { name: 'Upgrade now' })
       fireEvent.click(buttonConfirm)
 
       screen.getByText('processing', { exact: false })
@@ -543,7 +544,7 @@ describe('<ChangePlanModal />', function () {
 
       await openModal()
 
-      const buttonConfirm = screen.getByRole('button', { name: 'Upgrade Now' })
+      const buttonConfirm = screen.getByRole('button', { name: 'Upgrade now' })
       fireEvent.click(buttonConfirm)
 
       screen.getByText('processing', { exact: false })

@@ -85,8 +85,7 @@
   text-transform: capitalize;
 }
 
-.three-d-secure-container,
-.three-d-secure-container--react {
+.three-d-secure-container {
   > .three-d-secure-recurly-container {
     height: 400px;
 
@@ -285,4 +284,17 @@ a.row-link {
   color: #5bb553;
   height: 20px;
   width: 20px;
+}
+
+.payment-summary-card {
+  &:extend(.card-gray);
+  border-radius: @border-radius-large-new;
+
+  h3 {
+    margin-top: 0;
+    margin-bottom: @spacing-08;
+    font-family: @font-family-sans-serif;
+    font-weight: 600;
+    color: @content-secondary;
+  }
 }

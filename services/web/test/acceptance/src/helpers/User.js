@@ -784,6 +784,24 @@ class User {
   }
 
   uploadFileInProject(projectId, folderId, file, name, contentType, callback) {
+    this.uploadFileInProjectFull(
+      projectId,
+      folderId,
+      file,
+      name,
+      contentType,
+      (err, body) => callback(err, body?.entity_id)
+    )
+  }
+
+  uploadFileInProjectFull(
+    projectId,
+    folderId,
+    file,
+    name,
+    contentType,
+    callback
+  ) {
     const fileStream = fs.createReadStream(
       Path.resolve(Path.join(__dirname, '..', '..', 'files', file))
     )
@@ -819,7 +837,7 @@ class User {
           )
         }
 
-        callback(null, JSON.parse(body).entity_id)
+        callback(null, JSON.parse(body))
       }
     )
   }
@@ -949,6 +967,10 @@ class User {
     } else if (privileges === 'pendingEditor') {
       updateOp = {
         $addToSet: { readOnly_refs: user._id, pendingEditor_refs: user._id },
+      }
+    } else if (privileges === 'review') {
+      updateOp = {
+        $addToSet: { reviewer_refs: user._id },
       }
     }
     db.projects.updateOne({ _id: new ObjectId(projectId) }, updateOp, callback)
@@ -1142,7 +1164,7 @@ class User {
           if (response.statusCode !== 200) {
             return callback(
               new Error(
-                `login failed: status=${
+                `update settings failed: status=${
                   response.statusCode
                 } body=${JSON.stringify(body)}`
               )

@@ -1,11 +1,10 @@
-import { StateField, StateEffect } from '@codemirror/state'
+import { StateField, StateEffect, Line } from '@codemirror/state'
 import { EditorView, Decoration, DecorationSet } from '@codemirror/view'
 import { updateAfterAddingIgnoredWord } from './ignored-words'
 import { Word } from './spellchecker'
+import { setSpellCheckLanguageEffect } from '@/features/source-editor/extensions/spelling/index'
 
 export const addMisspelledWords = StateEffect.define<Word[]>()
-
-export const resetMisspelledWords = StateEffect.define()
 
 const createMark = (word: Word) => {
   return Decoration.mark({
@@ -37,16 +36,37 @@ export const misspelledWordsField = StateField.define<DecorationSet>({
 
     for (const effect of transaction.effects) {
       if (effect.is(addMisspelledWords)) {
+        const { doc } = transaction.state
+
+        // collect the lines that contained mispelled words, so existing marks can be removed
+        const affectedLines = new Map<number, Line>()
+        for (const word of effect.value) {
+          if (!affectedLines.has(word.lineNumber)) {
+            affectedLines.set(word.lineNumber, doc.line(word.lineNumber))
+          }
+        }
+
         // Merge the new misspelled words into the existing set of marks
         marks = marks.update({
+          filter(from, to) {
+            for (const line of affectedLines.values()) {
+              if (to > line.from && from < line.to) {
+                return false
+              }
+            }
+            return true
+          },
           add: effect.value.map(word => createMark(word)),
           sort: true,
         })
       } else if (effect.is(updateAfterAddingIgnoredWord)) {
-        // Remove a misspelled word, all instances that match text
-        const word = effect.value
-        marks = removeAllMarksMatchingWordText(marks, word)
-      } else if (effect.is(resetMisspelledWords)) {
+        // Remove existing marks matching the text of a supplied word
+        marks = marks.update({
+          filter(_from, _to, mark) {
+            return mark.spec.word.text !== effect.value
+          },
+        })
+      } else if (effect.is(setSpellCheckLanguageEffect)) {
         marks = Decoration.none
       }
     }
@@ -56,14 +76,3 @@ export const misspelledWordsField = StateField.define<DecorationSet>({
     return EditorView.decorations.from(field)
   },
 })
-
-/*
- * Remove existing marks matching the text of a supplied word
- */
-const removeAllMarksMatchingWordText = (marks: DecorationSet, word: string) => {
-  return marks.update({
-    filter: (from, to, mark) => {
-      return mark.spec.word.text !== word
-    },
-  })
-}

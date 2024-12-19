@@ -2,9 +2,12 @@ import usePersistedState from '../../../shared/hooks/use-persisted-state'
 import getMeta from '../../../utils/meta'
 import { useCallback } from 'react'
 import Close from '@/shared/components/close'
-import { bsVersion } from '@/features/utils/bootstrap-5'
 
-export default function SurveyWidget() {
+export default function SurveyWidget({
+  variant = 'dark',
+}: {
+  variant?: 'light' | 'dark'
+}) {
   const survey = getMeta('ol-survey')
   const [dismissedSurvey, setDismissedSurvey] = usePersistedState(
     `dismissed-${survey?.name}`,
@@ -22,13 +25,7 @@ export default function SurveyWidget() {
   return (
     <div className="user-notifications">
       <div className="notification-entry">
-        <div
-          role="alert"
-          className={bsVersion({
-            bs3: 'alert alert-info-alt',
-            bs5: 'survey-notification',
-          })}
-        >
+        <div role="alert" className="survey-notification">
           <div className="notification-body">
             {survey.preText}&nbsp;
             <a
@@ -41,7 +38,7 @@ export default function SurveyWidget() {
             </a>
           </div>
           <div className="notification-close notification-close-button-style">
-            <Close variant="dark" onDismiss={() => dismissSurvey()} />
+            <Close variant={variant} onDismiss={() => dismissSurvey()} />
           </div>
         </div>
       </div>

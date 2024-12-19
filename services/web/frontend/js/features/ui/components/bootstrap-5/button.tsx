@@ -5,12 +5,6 @@ import classNames from 'classnames'
 import { useTranslation } from 'react-i18next'
 import MaterialIcon from '@/shared/components/material-icon'
 
-const sizeClasses = new Map<ButtonProps['size'], string>([
-  ['small', 'btn-sm'],
-  ['default', ''],
-  ['large', 'btn-lg'],
-])
-
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
@@ -19,7 +13,6 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       leadingIcon,
       isLoading = false,
       loadingLabel,
-      size = 'default',
       trailingIcon,
       variant = 'primary',
       ...props
@@ -28,13 +21,28 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const { t } = useTranslation()
 
-    const sizeClass = sizeClasses.get(size)
-    const buttonClassName = classNames('d-inline-grid', sizeClass, className, {
+    const buttonClassName = classNames('d-inline-grid', className, {
       'button-loading': isLoading,
     })
+
     const loadingSpinnerClassName =
-      size === 'large' ? 'loading-spinner-large' : 'loading-spinner-small'
-    const materialIconClassName = size === 'large' ? 'icon-large' : 'icon-small'
+      props.size === 'lg' ? 'loading-spinner-large' : 'loading-spinner-small'
+    const materialIconClassName =
+      props.size === 'lg' ? 'icon-large' : 'icon-small'
+
+    const leadingIconComponent =
+      leadingIcon && typeof leadingIcon === 'string' ? (
+        <MaterialIcon type={leadingIcon} className={materialIconClassName} />
+      ) : (
+        leadingIcon
+      )
+
+    const trailingIconComponent =
+      trailingIcon && typeof trailingIcon === 'string' ? (
+        <MaterialIcon type={trailingIcon} className={materialIconClassName} />
+      ) : (
+        trailingIcon
+      )
 
     return (
       <BS5Button
@@ -42,6 +50,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         variant={variant}
         {...props}
         ref={ref}
+        disabled={isLoading || props.disabled}
+        data-ol-loading={isLoading}
       >
         {isLoading && (
           <span className="spinner-container">
@@ -58,19 +68,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           </span>
         )}
         <span className="button-content" aria-hidden={isLoading}>
-          {leadingIcon && (
-            <MaterialIcon
-              type={leadingIcon}
-              className={materialIconClassName}
-            />
-          )}
+          {leadingIconComponent}
           {children}
-          {trailingIcon && (
-            <MaterialIcon
-              type={trailingIcon}
-              className={materialIconClassName}
-            />
-          )}
+          {trailingIconComponent}
         </span>
       </BS5Button>
     )

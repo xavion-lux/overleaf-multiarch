@@ -4,6 +4,7 @@ const {
   zipAttachment,
   prepareZipAttachment,
 } = require('../../../../app/src/infrastructure/Response')
+const Joi = require('joi')
 
 class MockV1HistoryApi extends AbstractMockApi {
   reset() {
@@ -11,6 +12,7 @@ class MockV1HistoryApi extends AbstractMockApi {
     this.requestedZipPacks = 0
     this.sentChunks = 0
     this.events = new EventEmitter()
+    this.blobs = {}
   }
 
   applyRoutes() {
@@ -76,6 +78,43 @@ class MockV1HistoryApi extends AbstractMockApi {
     )
 
     this.app.delete('/api/projects/:project_id', (req, res, next) => {
+      res.sendStatus(204)
+    })
+
+    this.app.put('/api/projects/:projectId/blobs/:hash', (req, res, next) => {
+      const chunks = []
+      req.on('data', chunk => chunks.push(chunk))
+      req.on('end', () => {
+        const { projectId, hash } = req.params
+        if (!this.blobs[projectId]) {
+          this.blobs[projectId] = {}
+        }
+        this.blobs[projectId][hash] = Buffer.concat(chunks)
+        res.sendStatus(200)
+      })
+    })
+    this.app.head('/api/projects/:projectId/blobs/:hash', (req, res, next) => {
+      const { projectId, hash } = req.params
+      const buf = this.blobs[projectId]?.[hash]
+      if (!buf) return res.status(404).end()
+      res.set('Content-Length', buf.byteLength)
+      res.status(200).end()
+    })
+    this.app.get('/api/projects/:projectId/blobs/:hash', (req, res, next) => {
+      const { projectId, hash } = req.params
+      const buf = this.blobs[projectId]?.[hash]
+      if (!buf) return res.status(404).end()
+      res.status(200).end(buf)
+    })
+
+    this.app.post('/api/projects/:project_id/blobs/:hash', (req, res, next) => {
+      const schema = Joi.object({
+        copyFrom: Joi.number().required(),
+      })
+      const { error } = schema.validate(req.query)
+      if (error) {
+        return res.sendStatus(400)
+      }
       res.sendStatus(204)
     })
   }

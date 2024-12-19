@@ -55,15 +55,6 @@ $yellow-50: #8f5514;
 $yellow-60: #7a4304;
 $yellow-70: #633a0b;
 
-/* Website redesign */
-$vivid-tangerine: #f1a695;
-$ceil: #9597c9;
-$caramel: #f9d38f;
-$dark-jungle-green: #0f271a;
-$sapphire-blue: #4354a3;
-$purple-bright: #939aff;
-$green-bright: #13c965;
-
 /* ====== Semantic Sass color variables ====== */
 $bg-light-primary: $white;
 $bg-light-secondary: $neutral-10;
@@ -99,8 +90,8 @@ $border-active: $blue-50;
 $border-danger: $red-50;
 $border-divider: $neutral-20;
 $link-web: $green-50;
-$link-web-hover: $green-70;
-$link-web-visited: $green-50;
+$link-web-hover: $green-60;
+$link-web-visited: $green-60;
 $link-ui: $blue-50;
 $link-ui-hover: $blue-60;
 $link-ui-visited: $blue-60;
@@ -174,15 +165,6 @@ $link-ui-visited-dark: $blue-40;
   --yellow-60: #{$yellow-60};
   --yellow-70: #{$yellow-70};
 
-  /* Website redesign */
-  --vivid-tangerine: #{$vivid-tangerine};
-  --ceil: #{$ceil};
-  --caramel: #{$caramel};
-  --dark-jungle-green: #{$dark-jungle-green};
-  --sapphire-blue: #{$sapphire-blue};
-  --green-bright: #{$green-bright};
-  --purple-bright: #{$purple-bright};
-
   /* ====== Semantic CSS color variables ====== */
   --bg-light-primary: var(--white);
   --bg-light-secondary: var(--neutral-10);
@@ -218,7 +200,7 @@ $link-ui-visited-dark: $blue-40;
   --border-danger: var(--red-50);
   --border-divider: var(--neutral-20);
   --link-web: var(--green-50);
-  --link-web-hover: var(--green-70);
+  --link-web-hover: var(--green-60);
   --link-web-visited: var(--green-50);
   --link-ui: var(--blue-50);
   --link-ui-hover: var(--blue-60);

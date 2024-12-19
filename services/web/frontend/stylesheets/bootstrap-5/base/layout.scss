@@ -1,7 +1,27 @@
+html {
+  height: 100%;
+}
+
+// Prevent potential for layout shifts on a page with fixed 100% height. This
+// can happen, for example, with the Grammarly extension in Firefox.
+html.fixed-size-document {
+  position: fixed;
+  width: 100%;
+}
+
+body {
+  position: relative;
+  min-height: 100%;
+}
+
 .content {
   min-height: 100vh;
   padding-top: $header-height + $spacing-08;
   padding-bottom: $spacing-08;
+
+  .thin-footer & {
+    min-height: calc(100vh - #{$thin-footer-height});
+  }
 }
 
 .content-alt {
@@ -53,8 +73,4 @@ hr {
 
 .row-spaced-extra-large {
   margin-top: calc(var(--line-height-03) * 4);
-}
-
-.rotate-180 {
-  transform: rotate(180deg);
 }

@@ -6,9 +6,6 @@ const ContentController = require('./app/js/ContentController')
 const Settings = require('@overleaf/settings')
 const logger = require('@overleaf/logger')
 logger.initialize('clsi')
-if (Settings.sentry.dsn != null) {
-  logger.initializeErrorReporting(Settings.sentry.dsn)
-}
 const Metrics = require('@overleaf/metrics')
 
 const smokeTest = require('./test/smoke/js/SmokeTests')
@@ -16,7 +13,7 @@ const ContentTypeMapper = require('./app/js/ContentTypeMapper')
 const Errors = require('./app/js/Errors')
 const { createOutputZip } = require('./app/js/OutputController')
 
-const Path = require('path')
+const Path = require('node:path')
 
 Metrics.open_sockets.monitor(true)
 Metrics.memory.monitor(logger)
@@ -316,8 +313,8 @@ app.use(function (error, req, res, next) {
   }
 })
 
-const net = require('net')
-const os = require('os')
+const net = require('node:net')
+const os = require('node:os')
 
 let STATE = 'up'
 

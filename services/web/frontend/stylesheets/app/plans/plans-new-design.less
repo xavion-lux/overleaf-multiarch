@@ -13,9 +13,14 @@
 @nondiscounted-price-element-height: var(--line-height-02);
 
 @group-member-picker-height: 24px;
+@group-member-picker-top-height: 36px;
+@group-member-picker-sm-width: 50%;
+@group-member-picker-md-width: 25%;
 
 @table-4-column-width: 25%;
 @table-5-column-width: 20%;
+
+@plans-m-a-new-switch-height: 20px;
 
 .plans-new-design {
   padding-top: var(--header-height);
@@ -214,8 +219,8 @@
   }
 
   .plans-new-period-switcher-container {
+    position: relative;
     display: inline-flex;
-    justify-content: center;
     background-color: var(--neutral-10);
     border-radius: var(--border-radius-full-new);
     padding: var(--spacing-03);
@@ -227,45 +232,49 @@
       margin-bottom: var(--spacing-09);
     }
 
-    .plans-new-period-switcher {
+    label {
+      display: inline-flex;
+      align-items: center;
+      margin: 0;
       font-size: var(--font-size-05);
       font-weight: 600;
       line-height: var(--line-height-04);
       text-align: center;
       padding: var(--spacing-01) var(--spacing-04);
       border-radius: var(--border-radius-full-new);
-      display: flex;
-      align-items: center;
-      border: unset;
-      background-color: unset;
 
       &:hover {
         background-color: var(--neutral-20);
+        cursor: pointer;
       }
+    }
 
-      &.active {
-        background-color: var(--green-50);
-        color: white;
-        box-shadow: 0px 2px 4px 0px rgba(30, 37, 48, 0.16);
-
-        .plans-new-discount-badge {
-          background-color: var(--green-10);
-          color: var(--green-60);
-        }
-      }
-
+    input[type='radio'] {
+      position: absolute;
+      left: -9999px;
       &:focus,
       &:focus-visible {
         outline: 0;
       }
+    }
 
-      &:focus-visible {
-        .box-shadow-button-input();
-      }
+    input[type='radio']:focus-visible + label,
+    input[type='radio']:checked:focus-visible + label {
+      .box-shadow-button-input();
+    }
 
+    input[type='radio']:checked + label {
+      background-color: var(--green-50);
+      color: white;
+      box-shadow: 0px 2px 4px 0px rgba(30, 37, 48, 0.16);
       .plans-new-discount-badge {
-        margin-left: 6px;
+        background-color: var(--green-10);
+        color: var(--green-60);
       }
+    }
+
+    .plans-new-discount-badge {
+      margin-left: var(--spacing-03);
     }
   }
 
@@ -384,6 +393,10 @@
       font-weight: 600;
       line-height: var(--line-height-07);
       color: var(--neutral-90);
+
+      &[data-ol-plans-new-group-without-discount] {
+        padding-top: var(--spacing-04);
+      }
     }
 
     .plans-new-table-header-price-unit {
@@ -414,6 +427,17 @@
     margin-bottom: var(--spacing-08);
     font-size: var(--font-size-02);
     line-height: var(--line-height-02);
+  }
+
+  .plans-new-root-group-member-picker {
+    margin: var(--spacing-10) auto 0 auto;
+
+    @media (min-width: @screen-sm-min) {
+      width: @group-member-picker-sm-width;
+    }
+    @media (min-width: @screen-md-min) {
+      width: @group-member-picker-md-width;
+    }
   }
 
   .plans-new-group-member-picker {
@@ -453,6 +477,10 @@
             transition: transform 0.35s ease;
           }
         }
+
+        &[data-ol-plans-new-group-member-picker-button='group-all'] {
+          height: @group-member-picker-top-height;
+        }
       }
 
       ul.plans-new-group-member-picker-list {
@@ -467,6 +495,10 @@
         width: 100%;
         margin-top: var(--spacing-01);
         z-index: @z-index-group-member-picker-list;
+
+        &[data-ol-plans-new-group-member-picker-dropdown='group-all'] {
+          top: @group-member-picker-top-height;
+        }
       }
 
       li.plans-new-group-member-picker-footer {
@@ -568,6 +600,10 @@
           &.invisible-desktop {
             visibility: hidden;
           }
+        }
+
+        &.disabled {
+          opacity: 0.5;
         }
 
         input[type='checkbox'] {
@@ -1143,6 +1179,80 @@
     th,
     td {
       width: @table-5-column-width;
+    }
+  }
+}
+
+/// Toggle for monthly/annual toggle for period-toggle-improvements test
+/// Based on toggle in light-touch-redesign
+.monthly-annual-switch {
+  color: var(--neutral-90);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-top: var(--spacing-09);
+  margin-bottom: var(--spacing-13);
+
+  .plans-new-discount-label {
+    margin-left: var(--spacing-04);
+    color: var(--green-50);
+  }
+
+  @media (max-width: @screen-xs-max) {
+    margin-top: var(--spacing-08);
+    margin-bottom: var(--spacing-08);
+  }
+
+  label {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: @plans-m-a-new-switch-height;
+    margin-right: var(--spacing-05);
+    margin-bottom: 0;
+
+    input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    input + span {
+      background-color: var(--neutral-70);
+    }
+
+    input:checked + span {
+      background-color: var(--green-50);
+    }
+
+    input:checked + span::before {
+      transform: translateX(14px);
+    }
+
+    span {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      transition: 0.4s;
+      border-radius: @plans-m-a-new-switch-height;
+
+      &::before {
+        position: absolute;
+        content: '';
+        height: @plans-m-a-new-switch-height - @plans-m-a-switch-padding -
+          @plans-m-a-switch-padding;
+        width: @plans-m-a-new-switch-height - @plans-m-a-switch-padding -
+          @plans-m-a-switch-padding;
+        left: @plans-m-a-switch-padding;
+        bottom: @plans-m-a-switch-padding;
+        background-color: @white;
+        transition: 0.4s;
+        border-radius: 50%;
+      }
     }
   }
 }

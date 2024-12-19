@@ -1,4 +1,9 @@
 /* eslint-disable camelcase */
+const http = require('node:http')
+const https = require('node:https')
+
+http.globalAgent.keepAlive = false
+https.globalAgent.keepAlive = false
 
 const settings = {
   redis: {
@@ -156,10 +161,6 @@ const settings = {
   // Load balancer health checks will return 200 only when this file contains
   // the deployment colour for this app.
   deploymentFile: process.env.DEPLOYMENT_FILE,
-
-  sentry: {
-    dsn: process.env.SENTRY_DSN,
-  },
 
   errors: {
     catchUncaughtErrors: true,

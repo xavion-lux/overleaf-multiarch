@@ -1,9 +1,14 @@
 import { CurrencyCode } from '../currency'
 import { Nullable } from '../../utils'
-import { Plan } from '../plan'
+import { Plan, AddOn } from '../plan'
 import { User } from '../../user'
 
 type SubscriptionState = 'active' | 'canceled' | 'expired'
+
+// when puchasing a new add-on in recurly, we only need to provide the code
+export type PurchasingAddOnCode = {
+  code: string
+}
 
 type Recurly = {
   tax: number
@@ -13,6 +18,7 @@ type Recurly = {
   additionalLicenses: number
   totalLicenses: number
   nextPaymentDueAt: string
+  nextPaymentDueDate: string
   currency: CurrencyCode
   state?: SubscriptionState
   trialEndsAtFormatted: Nullable<string>
@@ -58,6 +64,7 @@ export type Subscription = {
   recurlySubscription_id: string
   plan: Plan
   pendingPlan?: Plan
+  addOns?: AddOn[]
 }
 
 export type RecurlySubscription = Subscription & {

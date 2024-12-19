@@ -2,12 +2,13 @@ import { EditorView } from '@codemirror/view'
 import { Annotation, Compartment, TransactionSpec } from '@codemirror/state'
 import { syntaxHighlighting } from '@codemirror/language'
 import { classHighlighter } from './class-highlighter'
+import classNames from 'classnames'
 
 const optionsThemeConf = new Compartment()
 const selectedThemeConf = new Compartment()
 export const themeOptionsChange = Annotation.define<boolean>()
 
-export type FontFamily = 'monaco' | 'lucida'
+export type FontFamily = 'monaco' | 'lucida' | 'opendyslexicmono'
 export type LineHeight = 'compact' | 'normal' | 'wide'
 export type OverallTheme = '' | 'light-'
 
@@ -16,6 +17,7 @@ type Options = {
   fontFamily: FontFamily
   lineHeight: LineHeight
   overallTheme: OverallTheme
+  bootstrapVersion: 3 | 5
 }
 
 export const theme = (options: Options) => [
@@ -60,6 +62,7 @@ export const lineHeights: Record<LineHeight, number> = {
 const fontFamilies: Record<FontFamily, string[]> = {
   monaco: ['Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'monospace'],
   lucida: ['Lucida Console', 'Source Code Pro', 'monospace'],
+  opendyslexicmono: ['OpenDyslexic Mono', 'monospace'],
 }
 
 const createThemeFromOptions = ({
@@ -67,13 +70,17 @@ const createThemeFromOptions = ({
   fontFamily = 'monaco',
   lineHeight = 'normal',
   overallTheme = '',
+  bootstrapVersion = 3,
 }: Options) => {
   /**
    * Theme styles that depend on settings.
    */
   return [
     EditorView.editorAttributes.of({
-      class: overallTheme === '' ? 'overall-theme-dark' : 'overall-theme-light',
+      class: classNames(
+        overallTheme === '' ? 'overall-theme-dark' : 'overall-theme-light',
+        'bootstrap-' + bootstrapVersion
+      ),
       style: Object.entries({
         '--font-size': `${fontSize}px`,
         '--source-font-family': fontFamilies[fontFamily]?.join(', '),

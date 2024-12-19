@@ -3,9 +3,9 @@
 const _ = require('lodash')
 const BPromise = require('bluebird')
 const { expect } = require('chai')
-const fs = BPromise.promisifyAll(require('fs'))
+const fs = BPromise.promisifyAll(require('node:fs'))
 const sinon = require('sinon')
-const stream = require('stream')
+const stream = require('node:stream')
 const temp = require('temp')
 
 const cleanup = require('./support/cleanup')
@@ -121,7 +121,7 @@ describe('ProjectArchive', function () {
     beforeEach(function () {
       const testStream = new stream.Readable({
         read: function () {
-          testStream.emit('error', new Error('test read error'))
+          testStream.destroy(new Error('test read error'))
         },
       })
       sinon.stub(blobStore, 'getStream').resolves(testStream)
@@ -141,7 +141,11 @@ describe('ProjectArchive', function () {
           expect.fail()
         })
         .catch(err => {
-          expect(err.message).to.match(/test read error/)
+          let message = err.message
+          if (err instanceof ProjectArchive.DownloadError) {
+            message = err.cause.message
+          }
+          expect(message).to.match(/test read error/)
         })
     })
   })
@@ -150,8 +154,8 @@ describe('ProjectArchive', function () {
     beforeEach(function () {
       sinon.stub(fs, 'createWriteStream').callsFake(path => {
         const testStream = new stream.Writable({
-          write: function () {
-            testStream.emit('error', new Error('test write error'))
+          write: function (chunk, encoding, callback) {
+            callback(new Error('test write error'))
           },
         })
         return testStream

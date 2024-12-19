@@ -1,9 +1,6 @@
-'use strict'
-
-const fs = require('fs-extra')
-const xml2js = require('xml2js')
-
-const UKAMFEntity = require('./ukamf-entity')
+import fs from 'fs'
+import xml2js from 'xml2js'
+import UKAMFEntity from './ukamf-entity.js'
 
 class UKAMFDB {
   constructor(file) {
@@ -11,7 +8,7 @@ class UKAMFDB {
   }
 
   async init() {
-    const data = await fs.readFile(this.file, 'utf8')
+    const data = await fs.promises.readFile(this.file, 'utf8')
     const parser = new xml2js.Parser()
     const xml = await parser.parseStringPromise(data)
 
@@ -28,4 +25,4 @@ class UKAMFDB {
   }
 }
 
-module.exports = UKAMFDB
+export default UKAMFDB

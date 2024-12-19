@@ -1,9 +1,56 @@
 const { callbackify } = require('util')
-const { fetchJson, fetchNothing } = require('@overleaf/fetch-utils')
+const {
+  fetchJson,
+  fetchNothing,
+  fetchStreamWithResponse,
+  RequestFailedError,
+} = require('@overleaf/fetch-utils')
+const fs = require('fs')
 const settings = require('@overleaf/settings')
 const OError = require('@overleaf/o-error')
 const UserGetter = require('../User/UserGetter')
 const ProjectGetter = require('../Project/ProjectGetter')
+const HistoryBackupDeletionHandler = require('./HistoryBackupDeletionHandler')
+const { db, ObjectId } = require('../../infrastructure/mongodb')
+const Metrics = require('@overleaf/metrics')
+const logger = require('@overleaf/logger')
+const { NotFoundError } = require('../Errors/Errors')
+const projectKey = require('./project_key')
+
+// BEGIN copy from services/history-v1/storage/lib/blob_store/index.js
+
+const GLOBAL_BLOBS = new Set() // CHANGE FROM SOURCE: only store hashes.
+
+function makeGlobalKey(hash) {
+  return `${hash.slice(0, 2)}/${hash.slice(2, 4)}/${hash.slice(4)}`
+}
+
+function makeProjectKey(projectId, hash) {
+  return `${projectKey.format(projectId)}/${hash.slice(0, 2)}/${hash.slice(2)}`
+}
+
+function getBlobLocation(projectId, hash) {
+  if (GLOBAL_BLOBS.has(hash)) {
+    return {
+      bucket: settings.apis.v1_history.buckets.globalBlobs,
+      key: makeGlobalKey(hash),
+    }
+  } else {
+    return {
+      bucket: settings.apis.v1_history.buckets.projectBlobs,
+      key: makeProjectKey(projectId, hash),
+    }
+  }
+}
+
+async function loadGlobalBlobs() {
+  const blobs = db.projectHistoryGlobalBlobs.find()
+  for await (const blob of blobs) {
+    GLOBAL_BLOBS.add(blob._id) // CHANGE FROM SOURCE: only store hashes.
+  }
+}
+
+// END copy from services/history-v1/storage/lib/blob_store/index.js
 
 async function initializeProject(projectId) {
   const body = await fetchJson(`${settings.apis.project_history.url}/project`, {
@@ -77,6 +124,7 @@ async function deleteProject(projectId, historyId) {
     tasks.push(_deleteProjectInFullProjectHistory(historyId))
   }
   await Promise.all(tasks)
+  await HistoryBackupDeletionHandler.deleteProject(projectId)
 }
 
 async function _deleteProjectInProjectHistory(projectId) {
@@ -108,6 +156,95 @@ async function _deleteProjectInFullProjectHistory(historyId) {
     )
   } catch (err) {
     throw OError.tag(err, 'failed to clear project history', { historyId })
+  }
+}
+
+async function uploadBlobFromDisk(historyId, hash, byteLength, fsPath) {
+  const outStream = fs.createReadStream(fsPath)
+
+  const url = `${settings.apis.v1_history.url}/projects/${historyId}/blobs/${hash}`
+  await fetchNothing(url, {
+    method: 'PUT',
+    body: outStream,
+    headers: { 'Content-Length': byteLength }, // add the content length to work around problems with chunked encoding in node 18
+    signal: AbortSignal.timeout(60 * 1000),
+    basicAuth: {
+      user: settings.apis.v1_history.user,
+      password: settings.apis.v1_history.pass,
+    },
+  })
+}
+
+async function copyBlob(sourceHistoryId, targetHistoryId, hash) {
+  const url = `${settings.apis.v1_history.url}/projects/${targetHistoryId}/blobs/${hash}`
+  await fetchNothing(
+    `${url}?${new URLSearchParams({ copyFrom: sourceHistoryId })}`,
+    {
+      method: 'POST',
+      basicAuth: {
+        user: settings.apis.v1_history.user,
+        password: settings.apis.v1_history.pass,
+      },
+    }
+  )
+}
+
+async function requestBlobWithFallback(
+  projectId,
+  hash,
+  fileId,
+  method = 'GET',
+  range = ''
+) {
+  const project = await ProjectGetter.promises.getProject(projectId, {
+    'overleaf.history.id': true,
+  })
+  // Talk to history-v1 directly to avoid streaming via project-history.
+  let url = new URL(settings.apis.v1_history.url)
+  url.pathname += `/projects/${project.overleaf.history.id}/blobs/${hash}`
+
+  const opts = { method, headers: { Range: range } }
+  let stream, response, source
+  try {
+    ;({ stream, response } = await fetchStreamWithResponse(url, {
+      ...opts,
+      basicAuth: {
+        user: settings.apis.v1_history.user,
+        password: settings.apis.v1_history.pass,
+      },
+    }))
+    source = 'history-v1'
+  } catch (err) {
+    if (err instanceof RequestFailedError && err.response.status === 404) {
+      if (ObjectId.isValid(fileId)) {
+        url = new URL(settings.apis.filestore.url)
+        url.pathname = `/project/${projectId}/file/${fileId}`
+        try {
+          ;({ stream, response } = await fetchStreamWithResponse(url, opts))
+        } catch (err) {
+          if (
+            err instanceof RequestFailedError &&
+            err.response.status === 404
+          ) {
+            throw new NotFoundError()
+          }
+          throw err
+        }
+        logger.warn({ projectId, hash, fileId }, 'missing history blob')
+        source = 'filestore'
+      } else {
+        throw new NotFoundError()
+      }
+    } else {
+      throw err
+    }
+  }
+  Metrics.inc('request_blob', 1, { path: source })
+  return {
+    url,
+    stream,
+    source,
+    contentLength: response.headers.get('Content-Length'),
   }
 }
 
@@ -256,6 +393,7 @@ function _userView(user) {
 }
 
 module.exports = {
+  getBlobLocation,
   initializeProject: callbackify(initializeProject),
   flushProject: callbackify(flushProject),
   resyncProject: callbackify(resyncProject),
@@ -263,7 +401,11 @@ module.exports = {
   deleteProjectHistory: callbackify(deleteProjectHistory),
   injectUserDetails: callbackify(injectUserDetails),
   getCurrentContent: callbackify(getCurrentContent),
+  uploadBlobFromDisk: callbackify(uploadBlobFromDisk),
+  copyBlob: callbackify(copyBlob),
+  requestBlobWithFallback: callbackify(requestBlobWithFallback),
   promises: {
+    loadGlobalBlobs,
     initializeProject,
     flushProject,
     resyncProject,
@@ -272,5 +414,8 @@ module.exports = {
     deleteProjectHistory,
     getCurrentContent,
     getContentAtVersion,
+    uploadBlobFromDisk,
+    copyBlob,
+    requestBlobWithFallback,
   },
 }

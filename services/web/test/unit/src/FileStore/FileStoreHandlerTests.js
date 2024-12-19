@@ -17,6 +17,7 @@ describe('FileStoreHandler', function () {
         isDirectory() {
           return false
         },
+        size: this.fileSize,
       }),
     }
     this.writeStream = {
@@ -38,6 +39,9 @@ describe('FileStoreHandler', function () {
     this.fileArgs = { name: 'upload-filename' }
     this.fileId = 'file_id_here'
     this.projectId = '1312312312'
+    this.historyId = 123
+    this.fileSize = 999
+    this.hashValue = '2aae6c35c94fcfb415dbe95f408b9ce91ee846ed'
     this.fsPath = 'uploads/myfile.eps'
     this.getFileUrl = (projectId, fileId) =>
       `${this.filestoreUrl}/project/${projectId}/file/${fileId}`
@@ -56,10 +60,21 @@ describe('FileStoreHandler', function () {
     this.FileHashManager = {
       computeHash: sinon.stub().callsArgWith(1, null, this.hashValue),
     }
+    this.HistoryManager = {
+      uploadBlobFromDisk: sinon.stub().callsArg(4),
+    }
+    this.ProjectDetailsHandler = {
+      getDetails: sinon.stub().callsArgWith(1, null, {
+        overleaf: { history: { id: this.historyId } },
+      }),
+    }
+
     this.handler = SandboxedModule.require(MODULE_PATH, {
       requires: {
         '@overleaf/settings': this.settings,
         request: this.request,
+        '../History/HistoryManager': this.HistoryManager,
+        '../Project/ProjectDetailsHandler': this.ProjectDetailsHandler,
         './FileHashManager': this.FileHashManager,
         // FIXME: need to stub File object here
         '../../models/File': {
@@ -73,6 +88,77 @@ describe('FileStoreHandler', function () {
   describe('uploadFileFromDisk', function () {
     beforeEach(function () {
       this.request.returns(this.writeStream)
+    })
+
+    it('should get the project details', function (done) {
+      this.fs.createReadStream.returns({
+        pipe() {},
+        on(type, cb) {
+          if (type === 'open') {
+            cb()
+          }
+        },
+      })
+      this.handler.uploadFileFromDisk(
+        this.projectId,
+        this.fileArgs,
+        this.fsPath,
+        () => {
+          this.ProjectDetailsHandler.getDetails
+            .calledWith(this.projectId)
+            .should.equal(true)
+          done()
+        }
+      )
+    })
+
+    it('should compute the file hash', function (done) {
+      this.fs.createReadStream.returns({
+        pipe() {},
+        on(type, cb) {
+          if (type === 'open') {
+            cb()
+          }
+        },
+      })
+      this.handler.uploadFileFromDisk(
+        this.projectId,
+        this.fileArgs,
+        this.fsPath,
+        () => {
+          this.FileHashManager.computeHash
+            .calledWith(this.fsPath)
+            .should.equal(true)
+          done()
+        }
+      )
+    })
+
+    it('should upload the file to the history store as a blob', function (done) {
+      this.fs.createReadStream.returns({
+        pipe() {},
+        on(type, cb) {
+          if (type === 'open') {
+            cb()
+          }
+        },
+      })
+      this.handler.uploadFileFromDisk(
+        this.projectId,
+        this.fileArgs,
+        this.fsPath,
+        () => {
+          this.HistoryManager.uploadBlobFromDisk
+            .calledWith(
+              this.historyId,
+              this.hashValue,
+              this.fileSize,
+              this.fsPath
+            )
+            .should.equal(true)
+          done()
+        }
+      )
     })
 
     it('should create read stream', function (done) {
@@ -300,7 +386,9 @@ describe('FileStoreHandler', function () {
             return done(err)
           }
           this.request.args[0][0].method.should.equal('get')
-          this.request.args[0][0].uri.should.equal(fileUrl)
+          this.request.args[0][0].uri.should.equal(
+            fileUrl + '?from=getFileStream'
+          )
           done()
         }
       )
@@ -389,7 +477,8 @@ describe('FileStoreHandler', function () {
   describe('getFileSize', function () {
     it('returns the file size reported by filestore', function (done) {
       const expectedFileSize = 32432
-      const fileUrl = this.getFileUrl(this.projectId, this.fileId)
+      const fileUrl =
+        this.getFileUrl(this.projectId, this.fileId) + '?from=getFileSize'
       this.request.head.yields(
         new Error('request.head() received unexpected arguments')
       )

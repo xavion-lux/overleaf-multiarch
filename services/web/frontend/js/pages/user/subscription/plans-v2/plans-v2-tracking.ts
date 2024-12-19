@@ -8,24 +8,34 @@ export function sendPlansViewEvent() {
     function () {
       const currency = getMeta('ol-recommendedCurrency')
       const countryCode = getMeta('ol-countryCode')
-      const geoPricingLATAMTestVariant = getSplitTestVariant(
-        'geo-pricing-latam-v2'
+
+      const groupTabImprovementsVariant = getSplitTestVariant(
+        'group-tab-improvements'
       )
 
       const websiteRedesignPlansTestVariant = getMeta(
         'ol-websiteRedesignPlansVariant'
       )
 
+      const periodToggleTestVariant = getSplitTestVariant(
+        'period-toggle-improvements'
+      )
+
       const device = window.matchMedia('(max-width: 767px)').matches
         ? 'mobile'
         : 'desktop'
+
+      const queryParams = new URLSearchParams(window.location.search)
+      const planTabParam = queryParams.get('plan')
 
       const plansPageViewSegmentation = {
         currency,
         countryCode,
         device,
-        'geo-pricing-latam-v2': geoPricingLATAMTestVariant,
         'website-redesign-plans': websiteRedesignPlansTestVariant,
+        'group-tab-improvements': groupTabImprovementsVariant,
+        plan: planTabParam,
+        'period-toggle-improvements': periodToggleTestVariant,
       }
 
       const isPlansPage = window.location.href.includes(

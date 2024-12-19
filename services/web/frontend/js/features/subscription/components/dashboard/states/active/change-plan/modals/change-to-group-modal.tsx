@@ -24,6 +24,8 @@ import { UserProvider } from '@/shared/context/user-context'
 import OLButton from '@/features/ui/components/ol/ol-button'
 import BootstrapVersionSwitcher from '@/features/ui/components/bootstrap-5/bootstrap-version-switcher'
 import OLNotification from '@/features/ui/components/ol/ol-notification'
+import { bsVersion } from '@/features/utils/bootstrap-5'
+import { useFeatureFlag } from '@/shared/context/split-test-context'
 
 const educationalPercentDiscount = 40
 const groupSizeForEducationalDiscount = 10
@@ -45,10 +47,16 @@ function GroupPlanCollaboratorCount({ planCode }: { planCode: string }) {
   return null
 }
 
-function EducationDiscountAppliedOrNot({ groupSize }: { groupSize: string }) {
+function EducationDiscountAppliedOrNot({
+  groupSize,
+  showGroupPricing2025,
+}: {
+  groupSize: string
+  showGroupPricing2025: boolean
+}) {
   const { t } = useTranslation()
   const size = parseInt(groupSize)
-  if (size >= groupSizeForEducationalDiscount) {
+  if (size >= groupSizeForEducationalDiscount || showGroupPricing2025) {
     return (
       <p className="applied">
         {t('educational_percent_discount_applied', {
@@ -144,6 +152,7 @@ export function ChangeToGroupModal() {
   const [error, setError] = useState(false)
   const [inflight, setInflight] = useState(false)
   const location = useLocation()
+  const showGroupPricing2025 = useFeatureFlag('group-pricing-2025')
 
   async function upgrade() {
     setError(false)
@@ -195,11 +204,13 @@ export function ChangeToGroupModal() {
           <OLModalTitle className="lh-sm">
             {t('customize_your_group_subscription')}
             <br />
-            <span className="h5">
-              {t('save_x_percent_or_more', {
-                percent: '30',
-              })}
-            </span>
+            {!showGroupPricing2025 && (
+              <span className="h5">
+                {t('save_x_percent_or_more', {
+                  percent: '30',
+                })}
+              </span>
+            )}
           </OLModalTitle>
         </OLModalHeader>
 
@@ -243,16 +254,22 @@ export function ChangeToGroupModal() {
                   <fieldset className="form-group">
                     <legend className="legend-as-label">{t('plan')}</legend>
                     {groupPlans.plans.map(option => (
-                      <OLFormCheckbox
+                      <div
+                        className={bsVersion({ bs3: 'radio' })}
                         key={option.code}
-                        type="radio"
-                        name="plan-code"
-                        value={option.code}
-                        id={`plan-option-${option.code}`}
-                        onChange={() => setGroupPlanToChangeToCode(option.code)}
-                        checked={option.code === groupPlanToChangeToCode}
-                        label={option.display}
-                      />
+                      >
+                        <OLFormCheckbox
+                          type="radio"
+                          name="plan-code"
+                          value={option.code}
+                          id={`plan-option-${option.code}`}
+                          onChange={() =>
+                            setGroupPlanToChangeToCode(option.code)
+                          }
+                          checked={option.code === groupPlanToChangeToCode}
+                          label={option.display}
+                        />
+                      </div>
                     ))}
                   </fieldset>
 
@@ -269,14 +286,16 @@ export function ChangeToGroupModal() {
                     </OLFormSelect>
                   </OLFormGroup>
 
-                  <OLFormGroup>
-                    <strong>
-                      {t('percent_discount_for_groups', {
-                        percent: educationalPercentDiscount,
-                        size: groupSizeForEducationalDiscount,
-                      })}
-                    </strong>
-                  </OLFormGroup>
+                  {!showGroupPricing2025 && (
+                    <OLFormGroup>
+                      <strong>
+                        {t('percent_discount_for_groups', {
+                          percent: educationalPercentDiscount,
+                          size: groupSizeForEducationalDiscount,
+                        })}
+                      </strong>
+                    </OLFormGroup>
+                  )}
 
                   <OLFormCheckbox
                     id="usage"
@@ -290,7 +309,24 @@ export function ChangeToGroupModal() {
                         setGroupPlanToChangeToUsage('enterprise')
                       }
                     }}
-                    label={t('license_for_educational_purposes')}
+                    label={
+                      showGroupPricing2025 ? (
+                        <Trans
+                          i18nKey="license_for_educational_purposes_2025"
+                          values={{ percent: educationalPercentDiscount }}
+                          shouldUnescape
+                          tOptions={{ interpolation: { escapeValue: true } }}
+                          components={[
+                            /* eslint-disable-next-line react/jsx-key */
+                            <strong />,
+                            /* eslint-disable-next-line react/jsx-key */
+                            <br />,
+                          ]}
+                        />
+                      ) : (
+                        t('license_for_educational_purposes')
+                      )
+                    }
                   />
                 </form>
               </div>
@@ -299,6 +335,7 @@ export function ChangeToGroupModal() {
               {groupPlanToChangeToUsage === 'educational' && (
                 <EducationDiscountAppliedOrNot
                   groupSize={groupPlanToChangeToSize}
+                  showGroupPricing2025={showGroupPricing2025}
                 />
               )}
             </div>
@@ -345,7 +382,7 @@ export function ChangeToGroupModal() {
             )}
             <OLButton
               variant="primary"
-              size="large"
+              size="lg"
               disabled={
                 queryingGroupPlanToChangeToPrice ||
                 !groupPlanToChangeToPrice ||

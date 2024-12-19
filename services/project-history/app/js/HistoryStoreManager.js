@@ -1,10 +1,10 @@
-import { promisify } from 'util'
-import fs from 'fs'
+import { promisify } from 'node:util'
+import fs from 'node:fs'
 import request from 'request'
-import stream from 'stream'
+import stream from 'node:stream'
 import logger from '@overleaf/logger'
 import _ from 'lodash'
-import { URL } from 'url'
+import { URL } from 'node:url'
 import OError from '@overleaf/o-error'
 import Settings from '@overleaf/settings'
 import {
@@ -246,6 +246,23 @@ function createBlobFromString(historyId, data, fileId, callback) {
   )
 }
 
+function _checkBlobExists(historyId, hash, callback) {
+  const url = `${Settings.overleaf.history.host}/projects/${historyId}/blobs/${hash}`
+  fetchNothing(url, {
+    method: 'HEAD',
+    ...getHistoryFetchOptions(),
+  })
+    .then(res => {
+      callback(null, true)
+    })
+    .catch(err => {
+      if (err instanceof RequestFailedError) {
+        return callback(null, false)
+      }
+      callback(OError.tag(err), false)
+    })
+}
+
 export function createBlobForUpdate(projectId, historyId, update, callback) {
   callback = _.once(callback)
 
@@ -300,43 +317,34 @@ export function createBlobForUpdate(projectId, historyId, update, callback) {
     if (urlMatch[1] !== projectId) {
       return callback(new OError('invalid project for blob creation'))
     }
+
     const fileId = urlMatch[2]
     const filestoreURL = `${Settings.apis.filestore.url}/project/${projectId}/file/${fileId}`
-    fetchStream(filestoreURL, {
-      signal: AbortSignal.timeout(HTTP_REQUEST_TIMEOUT),
-    })
-      .then(stream => {
-        LocalFileWriter.bufferOnDisk(
-          stream,
-          filestoreURL,
-          `project-${projectId}-file-${fileId}`,
-          (fsPath, cb) => {
-            _createBlob(historyId, fsPath, cb)
-          },
-          (err, fileHash) => {
-            if (err) {
-              return callback(err)
-            }
-            if (update.hash && update.hash !== fileHash) {
-              logger.warn(
-                { projectId, fileId, webHash: update.hash, fileHash },
-                'hash mismatch between web and project-history'
-              )
-            }
-            logger.debug({ fileHash }, 'created blob for file')
-            callback(null, { file: fileHash })
-          }
+
+    _checkBlobExists(historyId, update.hash, (err, blobExists) => {
+      if (err) {
+        logger.warn(
+          { err, projectId, fileId, update },
+          'error checking whether blob exists, reading from filestore'
         )
+      } else if (update.createdBlob && blobExists) {
+        logger.debug(
+          { projectId, fileId, update },
+          'Skipping blob creation as it has already been created'
+        )
+        return callback(null, { file: update.hash })
+      } else if (update.createdBlob) {
+        logger.warn(
+          { projectId, fileId, update },
+          'created blob does not exist, reading from filestore'
+        )
+      }
+      fetchStream(filestoreURL, {
+        signal: AbortSignal.timeout(HTTP_REQUEST_TIMEOUT),
       })
-      .catch(err => {
-        if (err instanceof RequestFailedError && err.response.status === 404) {
-          logger.warn(
-            { projectId, historyId, filestoreURL },
-            'File contents not found in filestore. Storing in history as an empty file'
-          )
-          const emptyStream = new StringStream()
+        .then(stream => {
           LocalFileWriter.bufferOnDisk(
-            emptyStream,
+            stream,
             filestoreURL,
             `project-${projectId}-file-${fileId}`,
             (fsPath, cb) => {
@@ -346,15 +354,48 @@ export function createBlobForUpdate(projectId, historyId, update, callback) {
               if (err) {
                 return callback(err)
               }
-              logger.debug({ fileHash }, 'created empty blob for file')
+              if (update.hash && update.hash !== fileHash) {
+                logger.warn(
+                  { projectId, fileId, webHash: update.hash, fileHash },
+                  'hash mismatch between web and project-history'
+                )
+              }
+              logger.debug({ fileHash }, 'created blob for file')
               callback(null, { file: fileHash })
             }
           )
-          emptyStream.push(null) // send an EOF signal
-        } else {
-          callback(OError.tag(err, 'error from filestore', { filestoreURL }))
-        }
-      })
+        })
+        .catch(err => {
+          if (
+            err instanceof RequestFailedError &&
+            err.response.status === 404
+          ) {
+            logger.warn(
+              { projectId, historyId, filestoreURL },
+              'File contents not found in filestore. Storing in history as an empty file'
+            )
+            const emptyStream = new StringStream()
+            LocalFileWriter.bufferOnDisk(
+              emptyStream,
+              filestoreURL,
+              `project-${projectId}-file-${fileId}`,
+              (fsPath, cb) => {
+                _createBlob(historyId, fsPath, cb)
+              },
+              (err, fileHash) => {
+                if (err) {
+                  return callback(err)
+                }
+                logger.debug({ fileHash }, 'created empty blob for file')
+                callback(null, { file: fileHash })
+              }
+            )
+            emptyStream.push(null) // send an EOF signal
+          } else {
+            callback(OError.tag(err, 'error from filestore', { filestoreURL }))
+          }
+        })
+    })
   } else {
     const error = new OError('invalid update for blob creation')
     callback(error)

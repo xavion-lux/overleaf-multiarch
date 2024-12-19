@@ -54,6 +54,14 @@ describe('<ProjectListRoot />', function () {
     // we need a blank user here since its used in checking if we should display certain ads
     window.metaAttributesCache.set('ol-user', {})
     window.metaAttributesCache.set('ol-user_id', userId)
+    window.metaAttributesCache.set('ol-footer', {
+      showThinFooter: false,
+      translatedLanguages: { en: 'English' },
+      subdomainLang: { en: { lngCode: 'en', url: 'overleaf.com' } },
+    })
+    window.metaAttributesCache.set('ol-navbar', {
+      items: [],
+    })
     assignStub = sinon.stub()
     this.locationStub = sinon.stub(useLocationModule, 'useLocation').returns({
       assign: assignStub,

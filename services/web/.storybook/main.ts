@@ -45,6 +45,33 @@ const config: StorybookConfig = {
               { loader: 'less-loader' },
             ],
           },
+          {
+            // Pass Sass files through sass-loader/css-loader/mini-css-extract-
+            // plugin (note: run in reverse order)
+            test: /\.s[ac]ss$/,
+            use: [
+              // Allows the CSS to be extracted to a separate .css file
+              { loader: MiniCssExtractPlugin.loader },
+              // Resolves any CSS dependencies (e.g. url())
+              { loader: 'css-loader' },
+              // Resolve relative paths sensibly in SASS
+              { loader: 'resolve-url-loader' },
+              {
+                // Runs autoprefixer on CSS via postcss
+                loader: 'postcss-loader',
+                options: {
+                  postcssOptions: {
+                    plugins: ['autoprefixer'],
+                  },
+                },
+              },
+              // Compiles Sass to CSS
+              {
+                loader: 'sass-loader',
+                options: { sourceMap: true }, // sourceMap: true is required for resolve-url-loader
+              },
+            ],
+          },
         ],
         plugins: [new MiniCssExtractPlugin()],
       },
@@ -77,6 +104,7 @@ const config: StorybookConfig = {
           fs: false,
           os: false,
           module: false,
+          tty: require.resolve('tty-browserify'),
         },
         extensions: ['.js', '.jsx', '.mjs', '.ts', '.tsx', '.json'],
         alias: {
@@ -84,6 +112,16 @@ const config: StorybookConfig = {
           // custom prefixes for import paths
           '@': path.join(rootDir, 'frontend/js/'),
         },
+      },
+      module: {
+        ...storybookConfig.module,
+        rules: (storybookConfig.module?.rules ?? []).concat({
+          test: /\.wasm$/,
+          type: 'asset/resource',
+          generator: {
+            filename: 'js/[name]-[contenthash][ext]',
+          },
+        }),
       },
     }
   },

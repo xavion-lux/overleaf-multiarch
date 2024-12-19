@@ -6,13 +6,15 @@ import {
 import { EditorSelection } from '@codemirror/state'
 import { useTranslation } from 'react-i18next'
 import { useThreadsActionsContext } from '../context/threads-context'
-import { removeNewCommentRangeEffect } from '@/features/source-editor/extensions/add-comment'
+import { removeNewCommentRangeEffect } from '@/features/source-editor/extensions/review-tooltip'
 import useSubmittableTextInput from '../hooks/use-submittable-text-input'
 import AutoExpandingTextArea from '@/shared/components/auto-expanding-text-area'
-import { Button } from 'react-bootstrap'
 import { ReviewPanelEntry } from './review-panel-entry'
 import { ThreadId } from '../../../../../types/review-panel/review-panel'
 import { Decoration } from '@codemirror/view'
+import { useModalsContext } from '@/features/ide-react/context/modals-context'
+import { debugConsole } from '@/utils/debugging'
+import OLButton from '@/features/ui/components/ol/ol-button'
 
 export const ReviewPanelAddComment: FC<{
   docId: string
@@ -25,8 +27,8 @@ export const ReviewPanelAddComment: FC<{
   const view = useCodeMirrorViewContext()
   const state = useCodeMirrorStateContext()
   const { addComment } = useThreadsActionsContext()
-  const [error, setError] = useState<Error>()
   const [submitting, setSubmitting] = useState(false)
+  const { showGenericMessageModal } = useModalsContext()
 
   const handleClose = useCallback(() => {
     view.dispatch({
@@ -35,22 +37,27 @@ export const ReviewPanelAddComment: FC<{
   }, [view, value])
 
   const submitForm = useCallback(
-    message => {
+    async message => {
       setSubmitting(true)
 
       const content = view.state.sliceDoc(from, to)
 
-      addComment(from, content, message)
-        .catch(setError)
-        .finally(() => setSubmitting(false))
-
-      view.dispatch({
-        selection: EditorSelection.cursor(view.state.selection.main.anchor),
-      })
-
-      handleClose()
+      try {
+        await addComment(from, content, message)
+        handleClose()
+        view.dispatch({
+          selection: EditorSelection.cursor(view.state.selection.main.anchor),
+        })
+      } catch (err) {
+        debugConsole.error(err)
+        showGenericMessageModal(
+          t('add_comment_error_title'),
+          t('add_comment_error_message')
+        )
+      }
+      setSubmitting(false)
     },
-    [addComment, view, handleClose, from, to]
+    [addComment, view, handleClose, from, to, showGenericMessageModal, t]
   )
 
   const { handleChange, handleKeyPress, content } =
@@ -123,6 +130,7 @@ export const ReviewPanelAddComment: FC<{
         t: value.spec.id as ThreadId,
       }}
       selectLineOnFocus={false}
+      disabled={submitting}
     >
       <form
         className="review-panel-entry-content"
@@ -134,31 +142,30 @@ export const ReviewPanelAddComment: FC<{
           name="message"
           className="review-panel-add-comment-textarea"
           onChange={handleChange}
-          onKeyDown={handleKeyPress}
+          onKeyPress={handleKeyPress}
           placeholder={t('add_your_comment_here')}
           value={content}
           disabled={submitting}
         />
         <div className="review-panel-add-comment-buttons">
-          <Button
-            bsSize="sm"
-            bsStyle={null}
+          <OLButton
+            variant="ghost"
+            size="sm"
             className="review-panel-add-comment-cancel-button"
             disabled={submitting}
             onClick={handleClose}
           >
             {t('cancel')}
-          </Button>
-          <Button
+          </OLButton>
+          <OLButton
             type="submit"
-            bsSize="sm"
-            className="btn-primary"
+            variant="primary"
+            size="sm"
             disabled={content === '' || submitting}
           >
             {t('comment')}
-          </Button>
+          </OLButton>
         </div>
-        {error && <div>{error.message}</div>}
       </form>
     </ReviewPanelEntry>
   )

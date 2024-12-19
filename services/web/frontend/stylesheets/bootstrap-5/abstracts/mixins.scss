@@ -42,6 +42,21 @@
     color: var(--bs-btn-color);
     background-color: var(--bs-btn-bg);
     border-color: var(--bs-btn-border-color);
+    opacity: 1;
+  }
+}
+
+@mixin action-button {
+  font-size: 0;
+  line-height: 1;
+  border-radius: 50%;
+  color: var(--content-primary);
+  background-color: transparent;
+
+  &:hover,
+  &:active,
+  &[aria-expanded='true'] {
+    background-color: rgb($neutral-90, 0.08);
   }
 }
 
@@ -67,11 +82,11 @@
 
 // Toolbar
 @mixin toolbar-sm-height {
-  height: 32px;
+  height: var(--toolbar-small-height);
 }
 
 @mixin toolbar-alt-bg() {
-  background-color: var(--bg-dark-secondary);
+  background-color: var(--toolbar-alt-bg-color);
 }
 
 @mixin theme($name) {
@@ -86,4 +101,76 @@
 
 @mixin box-shadow-button-input {
   box-shadow: 0 0 0 2px var(--blue-30);
+}
+
+@mixin animation($animation) {
+  animation: $animation;
+}
+
+@mixin striped($color: rgba(255, 255, 255, 0.15), $angle: 45deg) {
+  background-image: linear-gradient(
+    $angle,
+    $color 25%,
+    transparent 25%,
+    transparent 50%,
+    $color 50%,
+    $color 75%,
+    transparent 75%,
+    transparent
+  );
+}
+
+@mixin mask-image($gradient) {
+  // mask-image isn't supported without the -webkit prefix on all browsers we support yet
+  -webkit-mask-image: $gradient;
+  mask-image: $gradient;
+}
+
+@mixin premium-background {
+  background-image: var(--premium-gradient);
+}
+
+@mixin premium-text {
+  @include premium-background;
+
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--white); // Fallback
+  background-color: var(--blue-70); // Fallback
+}
+
+@mixin dark-bg {
+  --link-color: var(--link-color-dark);
+  --link-hover-color: var(--link-hover-color-dark);
+  --link-visited-color: var(--link-visited-color-dark);
+}
+
+@mixin triangle($direction, $width, $height, $color) {
+  position: absolute;
+  border-color: transparent;
+  border-style: solid;
+  width: 0;
+  height: 0;
+
+  @if $direction == top {
+    border-width: 0 calc(#{$width} / 2) #{$height} calc(#{$width} / 2);
+    border-bottom-color: $color;
+    border-left-color: transparent;
+    border-right-color: transparent;
+  } @else if $direction == bottom {
+    border-width: #{$height} calc(#{$width} / 2) 0 calc(#{$width} / 2);
+    border-top-color: $color;
+    border-left-color: transparent;
+    border-right-color: transparent;
+  } @else if $direction == right {
+    border-width: calc(#{$height} / 2) 0 calc(#{$height} / 2) #{$width};
+    border-left-color: $color;
+    border-top-color: transparent;
+    border-bottom-color: transparent;
+  } @else if $direction == left {
+    border-width: calc(#{$height} / 2) #{$width} calc(#{$height} / 2) 0;
+    border-right-color: $color;
+    border-top-color: transparent;
+    border-bottom-color: transparent;
+  }
 }

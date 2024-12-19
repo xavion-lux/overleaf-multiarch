@@ -74,8 +74,12 @@ samp {
   list-style-image: url('../../../../public/img/fa-check-green.svg');
 }
 
-.text-center {
-  text-align: center;
+.text-muted {
+  color: var(--content-disabled) !important;
+}
+
+.dm-mono {
+  @include font-mono;
 }
 
 @include media-breakpoint-up(lg) {

@@ -1,6 +1,7 @@
 import FileView from '../../js/features/file-view/components/file-view'
 import useFetchMock from '../hooks/use-fetch-mock'
 import { ScopeDecorator } from '../decorators/scope'
+import { bsVersionDecorator } from '../../../.storybook/utils/with-bootstrap-switcher'
 
 const bodies = {
   latex: `\\documentclass{article}
@@ -20,7 +21,7 @@ extra parameters or packages included.
 
 const setupFetchMock = fetchMock => {
   return fetchMock
-    .head('express:/project/:project_id/file/:file_id', {
+    .head('express:/project/:project_id/blob/:hash', {
       status: 201,
       headers: { 'Content-Length': 10000 },
     })
@@ -40,10 +41,9 @@ const fileData = {
 
 export const FileFromUrl = args => {
   useFetchMock(fetchMock =>
-    setupFetchMock(fetchMock).get(
-      'express:/project/:project_id/file/:file_id',
-      { body: bodies.latex }
-    )
+    setupFetchMock(fetchMock).get('express:/project/:project_id/blob/:hash', {
+      body: bodies.latex,
+    })
   )
 
   return <FileView {...args} />
@@ -60,10 +60,9 @@ FileFromUrl.args = {
 
 export const FileFromProjectWithLinkableProjectId = args => {
   useFetchMock(fetchMock =>
-    setupFetchMock(fetchMock).get(
-      'express:/project/:project_id/file/:file_id',
-      { body: bodies.latex }
-    )
+    setupFetchMock(fetchMock).get('express:/project/:project_id/blob/:hash', {
+      body: bodies.latex,
+    })
   )
 
   return <FileView {...args} />
@@ -81,10 +80,9 @@ FileFromProjectWithLinkableProjectId.args = {
 
 export const FileFromProjectWithoutLinkableProjectId = args => {
   useFetchMock(fetchMock =>
-    setupFetchMock(fetchMock).get(
-      'express:/project/:project_id/file/:file_id',
-      { body: bodies.latex }
-    )
+    setupFetchMock(fetchMock).get('express:/project/:project_id/blob/:hash', {
+      body: bodies.latex,
+    })
   )
 
   return <FileView {...args} />
@@ -102,10 +100,9 @@ FileFromProjectWithoutLinkableProjectId.args = {
 
 export const FileFromProjectOutputWithLinkableProject = args => {
   useFetchMock(fetchMock =>
-    setupFetchMock(fetchMock).get(
-      'express:/project/:project_id/file/:file_id',
-      { body: bodies.latex }
-    )
+    setupFetchMock(fetchMock).get('express:/project/:project_id/blob/:hash', {
+      body: bodies.latex,
+    })
   )
 
   return <FileView {...args} />
@@ -123,10 +120,9 @@ FileFromProjectOutputWithLinkableProject.args = {
 
 export const FileFromProjectOutputWithoutLinkableProjectId = args => {
   useFetchMock(fetchMock =>
-    setupFetchMock(fetchMock).get(
-      'express:/project/:project_id/file/:file_id',
-      { body: bodies.latex }
-    )
+    setupFetchMock(fetchMock).get('express:/project/:project_id/blob/:hash', {
+      body: bodies.latex,
+    })
   )
 
   return <FileView {...args} />
@@ -164,7 +160,7 @@ ImageFile.args = {
 export const TextFile = args => {
   useFetchMock(fetchMock =>
     setupFetchMock(fetchMock).get(
-      'express:/project/:project_id/file/:file_id',
+      'express:/project/:project_id/blob/:hash',
       { body: bodies.text },
       { overwriteRoutes: true }
     )
@@ -186,7 +182,7 @@ TextFile.args = {
 export const UploadedFile = args => {
   useFetchMock(fetchMock =>
     setupFetchMock(fetchMock).head(
-      'express:/project/:project_id/file/:file_id',
+      'express:/project/:project_id/blob/:hash',
       { status: 500 },
       { overwriteRoutes: true }
     )
@@ -207,6 +203,7 @@ export default {
   component: FileView,
   argTypes: {
     storeReferencesKeys: { action: 'store references keys' },
+    ...bsVersionDecorator.argTypes,
   },
   decorators: [ScopeDecorator],
 }

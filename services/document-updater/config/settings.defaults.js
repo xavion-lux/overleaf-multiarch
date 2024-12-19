@@ -1,3 +1,9 @@
+const http = require('node:http')
+const https = require('node:https')
+
+http.globalAgent.keepAlive = false
+https.globalAgent.keepAlive = false
+
 module.exports = {
   internal: {
     documentupdater: {
@@ -168,10 +174,6 @@ module.exports = {
     options: {
       monitorCommands: true,
     },
-  },
-
-  sentry: {
-    dsn: process.env.SENTRY_DSN,
   },
 
   publishOnIndividualChannels:

@@ -3,6 +3,7 @@ import { FileTreeEntity } from '../../../../../types/file-tree-entity'
 import { Doc } from '../../../../../types/doc'
 import { FileRef } from '../../../../../types/file-ref'
 import { PreviewPath } from '../../../../../types/preview-path'
+import { fileUrl } from '../../utils/fileUrl'
 
 type DocFindResult = {
   entity: Doc
@@ -106,8 +107,7 @@ export function findEntityByPath(
 export function previewByPath(
   folder: Folder,
   projectId: string,
-  path: string,
-  fileTreeFromHistory: boolean
+  path: string
 ): PreviewPath | null {
   for (const suffix of [
     '',
@@ -125,9 +125,7 @@ export function previewByPath(
     if (result?.type === 'fileRef') {
       const { name, _id: id, hash } = result.entity
       return {
-        url: fileTreeFromHistory
-          ? `/project/${projectId}/blob/${hash}`
-          : `/project/${projectId}/file/${id}`,
+        url: fileUrl(projectId, id, hash),
         extension: name.slice(name.lastIndexOf('.') + 1),
       }
     }

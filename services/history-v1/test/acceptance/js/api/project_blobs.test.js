@@ -1,6 +1,6 @@
 const { expect } = require('chai')
 const config = require('config')
-const fs = require('fs')
+const fs = require('node:fs')
 const fetch = require('node-fetch')
 const HTTPStatus = require('http-status')
 
@@ -9,6 +9,11 @@ const fixtures = require('../storage/support/fixtures')
 const testFiles = require('../storage/support/test_files')
 const testServer = require('./support/test_server')
 const { expectHttpError } = require('./support/expect_response')
+
+const { globalBlobs } = require('../../../../storage/lib/mongodb.js')
+const {
+  loadGlobalBlobs,
+} = require('../../../../storage/lib/blob_store/index.js')
 
 describe('Project blobs API', function () {
   const projectId = '123'
@@ -111,6 +116,33 @@ describe('Project blobs API', function () {
       expect(payload).to.equal(fileContents.toString())
     })
 
+    it('supports range request', async function () {
+      const url = new URL(
+        testServer.url(
+          `/api/projects/${projectId}/blobs/${testFiles.HELLO_TXT_HASH}`
+        )
+      )
+      url.searchParams.append('token', token)
+      const response = await fetch(url, { headers: { Range: 'bytes=0-4' } })
+      const payload = await response.text()
+      expect(payload).to.equal(fileContents.toString().slice(0, 4))
+    })
+
+    it('supports HEAD request', async function () {
+      const url = new URL(
+        testServer.url(
+          `/api/projects/${projectId}/blobs/${testFiles.HELLO_TXT_HASH}`
+        )
+      )
+      url.searchParams.append('token', token)
+      const response = await fetch(url, { method: 'HEAD' })
+      expect(response.headers.get('Content-Length')).to.equal(
+        testFiles.HELLO_TXT_BYTE_LENGTH.toString()
+      )
+      const payload = await response.text()
+      expect(payload).to.have.length(0)
+    })
+
     it('rejects an unautorized request', async function () {
       const response = await fetch(
         testServer.url(
@@ -118,6 +150,102 @@ describe('Project blobs API', function () {
         )
       )
       expect(response.status).to.equal(HTTPStatus.UNAUTHORIZED)
+    })
+
+    it('copies the blob to another project', async function () {
+      const targetProjectId = '456'
+      const targetClient =
+        await testServer.createClientForProject(targetProjectId)
+      const targetToken = testServer.createTokenForProject(targetProjectId)
+      const url = new URL(
+        testServer.url(
+          `/api/projects/${targetProjectId}/blobs/${testFiles.HELLO_TXT_HASH}`
+        )
+      )
+      url.searchParams.append('copyFrom', projectId)
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${targetToken}` },
+      })
+      expect(response.status).to.equal(HTTPStatus.CREATED)
+
+      const newBlobResponse = await targetClient.apis.Project.getProjectBlob({
+        project_id: targetProjectId,
+        hash: testFiles.HELLO_TXT_HASH,
+      })
+      const newBlobResponseText = await newBlobResponse.data.text()
+      expect(newBlobResponseText).to.equal(fileContents.toString())
+    })
+
+    it('skips copying a blob to another project if it already exists', async function () {
+      const targetProjectId = '456'
+      const targetClient =
+        await testServer.createClientForProject(targetProjectId)
+      const targetToken = testServer.createTokenForProject(targetProjectId)
+
+      const fileContents = await fs.promises.readFile(
+        testFiles.path('hello.txt')
+      )
+      const uploadResponse = await fetch(
+        testServer.url(
+          `/api/projects/${targetProjectId}/blobs/${testFiles.HELLO_TXT_HASH}`
+        ),
+        {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${targetToken}` },
+          body: fileContents,
+        }
+      )
+      expect(uploadResponse.ok).to.be.true
+
+      const url = new URL(
+        testServer.url(
+          `/api/projects/${targetProjectId}/blobs/${testFiles.HELLO_TXT_HASH}`
+        )
+      )
+      url.searchParams.append('copyFrom', projectId)
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${targetToken}` },
+      })
+      expect(response.status).to.equal(HTTPStatus.NO_CONTENT)
+
+      const newBlobResponse = await targetClient.apis.Project.getProjectBlob({
+        project_id: targetProjectId,
+        hash: testFiles.HELLO_TXT_HASH,
+      })
+      const newBlobResponseText = await newBlobResponse.data.text()
+      expect(newBlobResponseText).to.equal(fileContents.toString())
+    })
+  })
+
+  describe('with a global blob', async function () {
+    before(async function () {
+      await globalBlobs.insertOne({
+        _id: testFiles.STRING_A_HASH,
+        byteLength: 1,
+        stringLength: 1,
+      })
+      await loadGlobalBlobs()
+    })
+
+    it('does not copy global blobs', async function () {
+      const targetProjectId = '456'
+      const targetToken = testServer.createTokenForProject(targetProjectId)
+      const url = new URL(
+        testServer.url(
+          `/api/projects/${targetProjectId}/blobs/${testFiles.STRING_A_HASH}`
+        )
+      )
+      url.searchParams.append('copyFrom', projectId)
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${targetToken}` },
+      })
+      expect(response.status).to.equal(HTTPStatus.NO_CONTENT)
     })
   })
 })

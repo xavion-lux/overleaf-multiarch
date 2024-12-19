@@ -37,7 +37,7 @@ import {
   addLearnedWord,
   removeLearnedWord,
   resetLearnedWords,
-  setSpelling,
+  setSpellCheckLanguage,
 } from '../extensions/spelling'
 import {
   createChangeManager,
@@ -65,11 +65,14 @@ import { setMathPreview } from '@/features/source-editor/extensions/math-preview
 import { useRangesContext } from '@/features/review-panel-new/context/ranges-context'
 import { updateRanges } from '@/features/source-editor/extensions/ranges'
 import { useThreadsContext } from '@/features/review-panel-new/context/threads-context'
+import { useHunspell } from '@/features/source-editor/hooks/use-hunspell'
+import { isBootstrap5 } from '@/features/utils/bootstrap-5'
+import { Permissions } from '@/features/ide-react/types/permissions'
 
 function useCodeMirrorScope(view: EditorView) {
   const { fileTreeData } = useFileTreeData()
 
-  const [permissions] = useScopeValue<{ write: boolean }>('permissions')
+  const [permissions] = useScopeValue<Permissions>('permissions')
 
   // set up scope listeners
 
@@ -107,9 +110,18 @@ function useCodeMirrorScope(view: EditorView) {
     'onlineUserCursorHighlights'
   )
 
-  const [spellCheckLanguage] = useScopeValue<string>(
-    'project.spellCheckLanguage'
-  )
+  let [spellCheckLanguage] = useScopeValue<string>('project.spellCheckLanguage')
+  // spell check is off when read-only
+  if (!permissions.write && !permissions.trackedWrite) {
+    spellCheckLanguage = ''
+  }
+
+  const [projectFeatures] =
+    useScopeValue<Record<string, boolean | string | number | undefined>>(
+      'project.features'
+    )
+
+  const hunspellManager = useHunspell(spellCheckLanguage)
 
   const [visual] = useScopeValue<boolean>('editor.showVisual')
 
@@ -131,6 +143,7 @@ function useCodeMirrorScope(view: EditorView) {
     lineHeight,
     overallTheme,
     editorTheme,
+    bootstrapVersion: 3 as 3 | 5,
   })
 
   useEffect(() => {
@@ -140,6 +153,7 @@ function useCodeMirrorScope(view: EditorView) {
       lineHeight,
       overallTheme,
       editorTheme,
+      bootstrapVersion: isBootstrap5() ? 5 : 3,
     }
 
     view.dispatch(
@@ -148,6 +162,7 @@ function useCodeMirrorScope(view: EditorView) {
         fontSize,
         lineHeight,
         overallTheme,
+        bootstrapVersion: themeRef.current.bootstrapVersion,
       })
     )
 
@@ -168,8 +183,6 @@ function useCodeMirrorScope(view: EditorView) {
     currentDoc,
     trackChanges,
     loadingThreads,
-    threads,
-    ranges,
   })
 
   useEffect(() => {
@@ -179,8 +192,6 @@ function useCodeMirrorScope(view: EditorView) {
   }, [view, currentDoc])
 
   useEffect(() => {
-    currentDocRef.current.ranges = ranges
-    currentDocRef.current.threads = threads
     if (ranges && threads) {
       window.setTimeout(() => {
         view.dispatch(updateRanges({ ranges, threads }))
@@ -214,14 +225,20 @@ function useCodeMirrorScope(view: EditorView) {
 
   const spellingRef = useRef({
     spellCheckLanguage,
+    hunspellManager,
   })
 
   useEffect(() => {
     spellingRef.current = {
       spellCheckLanguage,
+      hunspellManager,
     }
-    view.dispatch(setSpelling(spellingRef.current))
-  }, [view, spellCheckLanguage])
+    window.setTimeout(() => {
+      view.dispatch(setSpellCheckLanguage(spellingRef.current))
+    })
+  }, [view, spellCheckLanguage, hunspellManager])
+
+  const projectFeaturesRef = useRef(projectFeatures)
 
   // listen to doc:after-opened, and focus the editor if it's not a new doc
   useEffect(() => {
@@ -272,7 +289,7 @@ function useCodeMirrorScope(view: EditorView) {
     }
   }, [view, fileTreeData])
 
-  const editableRef = useRef(permissions.write)
+  const editableRef = useRef(permissions.write || permissions.trackedWrite)
 
   const { previewByPath } = useFileTreePathContext()
 
@@ -321,6 +338,7 @@ function useCodeMirrorScope(view: EditorView) {
           phrases: phrasesRef.current,
           spelling: spellingRef.current,
           visual: visualRef.current,
+          projectFeatures: projectFeaturesRef.current,
           changeManager: createChangeManager(view, currentDoc),
           handleError,
           handleException,
@@ -359,68 +377,93 @@ function useCodeMirrorScope(view: EditorView) {
     if (docName) {
       docNameRef.current = docName
 
-      view.dispatch(
-        setDocName(docNameRef.current),
-        setLanguage(
-          docNameRef.current,
-          metadataRef.current,
-          settingsRef.current.syntaxValidation
+      window.setTimeout(() => {
+        view.dispatch(
+          setDocName(docNameRef.current),
+          setLanguage(
+            docNameRef.current,
+            metadataRef.current,
+            settingsRef.current.syntaxValidation
+          )
         )
-      )
+      })
     }
   }, [view, docName])
 
   useEffect(() => {
     visualRef.current.visual = showVisual
-    view.dispatch(setVisual(visualRef.current))
-    view.dispatch({
-      effects: EditorView.scrollIntoView(view.state.selection.main.head),
+    window.setTimeout(() => {
+      view.dispatch(setVisual(visualRef.current))
+      view.dispatch({
+        effects: EditorView.scrollIntoView(view.state.selection.main.head),
+      })
+      // clear performance measures and marks when switching between Source and Rich Text
+      window.dispatchEvent(new Event('editor:visual-switch'))
     })
-    // clear performance measures and marks when switching between Source and Rich Text
-    window.dispatchEvent(new Event('editor:visual-switch'))
   }, [view, showVisual])
 
   useEffect(() => {
     visualRef.current.previewByPath = previewByPath
-    view.dispatch(setVisual(visualRef.current))
+    window.setTimeout(() => {
+      view.dispatch(setVisual(visualRef.current))
+    })
   }, [view, previewByPath])
 
   useEffect(() => {
-    editableRef.current = permissions.write
-    view.dispatch(setEditable(editableRef.current)) // the editor needs to be locked when there's a problem saving data
-  }, [view, permissions.write])
+    editableRef.current = permissions.write || permissions.trackedWrite
+    window.setTimeout(() => {
+      view.dispatch(setEditable(editableRef.current)) // the editor needs to be locked when there's a problem saving data
+    })
+  }, [view, permissions.write, permissions.trackedWrite])
 
   useEffect(() => {
     phrasesRef.current = phrases
-    view.dispatch(setPhrases(phrases))
+    window.setTimeout(() => {
+      view.dispatch(setPhrases(phrases))
+    })
   }, [view, phrases])
 
   // listen to editor settings updates
   useEffect(() => {
     settingsRef.current.autoPairDelimiters = autoPairDelimiters
-    view.dispatch(setAutoPair(autoPairDelimiters))
+    window.setTimeout(() => {
+      view.dispatch(setAutoPair(autoPairDelimiters))
+    })
   }, [view, autoPairDelimiters])
 
   useEffect(() => {
     settingsRef.current.autoComplete = autoComplete
-    view.dispatch(setAutoComplete(autoComplete))
+    window.setTimeout(() => {
+      view.dispatch(
+        setAutoComplete({
+          enabled: autoComplete,
+          projectFeatures: projectFeaturesRef.current,
+        })
+      )
+    })
   }, [view, autoComplete])
 
   useEffect(() => {
     settingsRef.current.mode = mode
     setKeybindings(mode).then(spec => {
-      view.dispatch(spec)
+      window.setTimeout(() => {
+        view.dispatch(spec)
+      })
     })
   }, [view, mode])
 
   useEffect(() => {
     settingsRef.current.syntaxValidation = syntaxValidation
-    view.dispatch(setSyntaxValidation(syntaxValidation))
+    window.setTimeout(() => {
+      view.dispatch(setSyntaxValidation(syntaxValidation))
+    })
   }, [view, syntaxValidation])
 
   useEffect(() => {
     settingsRef.current.mathPreview = mathPreview
-    view.dispatch(setMathPreview(mathPreview))
+    window.setTimeout(() => {
+      view.dispatch(setMathPreview(mathPreview))
+    })
   }, [view, mathPreview])
 
   const emitSyncToPdf = useScopeEventEmitter('cursor:editor:syncToPdf')
@@ -489,10 +532,9 @@ function useCodeMirrorScope(view: EditorView) {
 
   // enable/disable the compile log linter as appropriate
   useEffect(() => {
-    // dispatch in a timeout, so the dispatch isn't in the same cycle as the edit which caused it
     window.setTimeout(() => {
       view.dispatch(showCompileLogDiagnostics(enableCompileLogLinter))
-    }, 0)
+    })
   }, [view, enableCompileLogLinter])
 
   // set the compile log annotations when they change
@@ -500,7 +542,6 @@ function useCodeMirrorScope(view: EditorView) {
     if (currentDoc && logEntryAnnotations) {
       const annotations = logEntryAnnotations[currentDoc.doc_id]
 
-      // dispatch in a timeout, so the dispatch isn't in the same cycle as the edit which caused it
       window.setTimeout(() => {
         view.dispatch(
           setAnnotations(view.state, annotations || []),
@@ -541,7 +582,9 @@ function useCodeMirrorScope(view: EditorView) {
 
   const handleRemoveLearnedWords = useCallback(
     (event: CustomEvent<string>) => {
-      view.dispatch(removeLearnedWord(spellCheckLanguage, event.detail))
+      window.setTimeout(() => {
+        view.dispatch(removeLearnedWord(spellCheckLanguage, event.detail))
+      })
     },
     [spellCheckLanguage, view]
   )
@@ -549,13 +592,24 @@ function useCodeMirrorScope(view: EditorView) {
   useEventListener('learnedWords:remove', handleRemoveLearnedWords)
 
   const handleResetLearnedWords = useCallback(() => {
-    view.dispatch(resetLearnedWords())
+    window.setTimeout(() => {
+      view.dispatch(resetLearnedWords())
+    })
   }, [view])
 
   useEventListener('learnedWords:reset', handleResetLearnedWords)
 
+  useEventListener(
+    'editor:focus',
+    useCallback(() => {
+      view.focus()
+    }, [view])
+  )
+
   useEffect(() => {
-    view.dispatch(reviewPanelToggled())
+    window.setTimeout(() => {
+      view.dispatch(reviewPanelToggled())
+    })
   }, [reviewPanelOpen, miniReviewPanelVisible, view])
 }
 

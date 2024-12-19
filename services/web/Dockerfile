@@ -1,6 +1,6 @@
 # the base image is suitable for running web with /overleaf/services/web bind
 # mounted
-FROM node:18.20.2 AS base
+FROM node:20.18.0 AS base
 
 WORKDIR /overleaf/services/web
 
@@ -71,7 +71,7 @@ RUN OVERLEAF_CONFIG=/overleaf/services/web/config/settings.overrides.saas.js npm
 # the web image with only production dependencies but no webpack production build, for development
 FROM pug AS app-only
 USER node
-CMD ["node", "--expose-gc", "app.js"]
+CMD ["node", "--expose-gc", "app.mjs"]
 
 
 # the final production image, with webpack production build but without source maps
@@ -80,4 +80,4 @@ ARG SENTRY_RELEASE
 ENV SENTRY_RELEASE=$SENTRY_RELEASE
 COPY --from=webpack-no-sourcemaps /overleaf/services/web/public /overleaf/services/web/public
 USER node
-CMD ["node", "--expose-gc", "app.js"]
+CMD ["node", "--expose-gc", "app.mjs"]

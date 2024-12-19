@@ -1,6 +1,7 @@
 import {
   createContext,
   FC,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -16,6 +17,10 @@ import {
 import RangesTracker from '@overleaf/ranges-tracker'
 import { rejectChanges } from '@/features/source-editor/extensions/changes/reject-changes'
 import { useCodeMirrorViewContext } from '@/features/source-editor/components/codemirror-context'
+import { postJSON } from '@/infrastructure/fetch-json'
+import { useIdeReactContext } from '@/features/ide-react/context/ide-react-context'
+import { useConnectionContext } from '@/features/ide-react/context/connection-context'
+import useSocketListener from '@/features/ide-react/hooks/use-socket-listener'
 
 export type Ranges = {
   docId: string
@@ -32,13 +37,43 @@ type RangesActions = {
 }
 
 const buildRanges = (currentDoc: DocumentContainer | null) => {
-  if (currentDoc?.ranges) {
-    return {
-      ...currentDoc.ranges,
-      docId: currentDoc.doc_id,
-      total:
-        currentDoc.ranges.changes.length + currentDoc.ranges.comments.length,
-    }
+  const ranges = currentDoc?.ranges
+
+  if (!ranges) {
+    return undefined
+  }
+
+  const dirtyState = ranges.getDirtyState()
+  ranges.resetDirtyState()
+
+  const changed = {
+    changes: new Set([
+      ...Object.keys(dirtyState.change.added),
+      ...Object.keys(dirtyState.change.moved),
+      ...Object.keys(dirtyState.change.removed),
+    ]),
+    comments: new Set([
+      ...Object.keys(dirtyState.comment.added),
+      ...Object.keys(dirtyState.comment.moved),
+      ...Object.keys(dirtyState.comment.removed),
+    ]),
+  }
+
+  return {
+    changes:
+      changed.changes.size > 0
+        ? ranges.changes.map(change =>
+            changed.changes.has(change.id) ? { ...change } : change
+          )
+        : ranges.changes,
+    comments:
+      changed.comments.size > 0
+        ? ranges.comments.map(comment =>
+            changed.comments.has(comment.id) ? { ...comment } : comment
+          )
+        : ranges.comments,
+    docId: currentDoc.doc_id,
+    total: ranges.changes.length + ranges.comments.length,
   }
 }
 
@@ -46,11 +81,11 @@ const RangesActionsContext = createContext<RangesActions | undefined>(undefined)
 
 export const RangesProvider: FC = ({ children }) => {
   const view = useCodeMirrorViewContext()
-
+  const { projectId } = useIdeReactContext()
   const [currentDoc] = useScopeValue<DocumentContainer | null>(
     'editor.sharejs_doc'
   )
-
+  const { socket } = useConnectionContext()
   const [ranges, setRanges] = useState<Ranges | undefined>(() =>
     buildRanges(currentDoc)
   )
@@ -102,10 +137,28 @@ export const RangesProvider: FC = ({ children }) => {
     }
   }, [currentDoc])
 
+  useSocketListener(
+    socket,
+    'accept-changes',
+    useCallback(
+      (docId: string, entryIds: string[]) => {
+        if (currentDoc?.ranges) {
+          if (docId === currentDoc.doc_id) {
+            currentDoc.ranges.removeChangeIds(entryIds)
+            setRanges(buildRanges(currentDoc))
+          }
+        }
+      },
+      [currentDoc]
+    )
+  )
+
   const actions = useMemo(
     () => ({
-      acceptChanges(...ids: string[]) {
+      async acceptChanges(...ids: string[]) {
         if (currentDoc?.ranges) {
+          const url = `/project/${projectId}/doc/${currentDoc.doc_id}/changes/accept`
+          await postJSON(url, { body: { change_ids: ids } })
           currentDoc.ranges.removeChangeIds(ids)
           setRanges(buildRanges(currentDoc))
         }
@@ -116,7 +169,7 @@ export const RangesProvider: FC = ({ children }) => {
         }
       },
     }),
-    [currentDoc, view]
+    [currentDoc, projectId, view]
   )
 
   return (

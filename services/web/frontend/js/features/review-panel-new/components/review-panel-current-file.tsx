@@ -28,7 +28,10 @@ import { canAggregate } from '../utils/can-aggregate'
 import ReviewPanelEmptyState from './review-panel-empty-state'
 import useEventListener from '@/shared/hooks/use-event-listener'
 import { hasActiveRange } from '@/features/review-panel-new/utils/has-active-range'
-import { addCommentStateField } from '@/features/source-editor/extensions/add-comment'
+import { reviewTooltipStateField } from '@/features/source-editor/extensions/review-tooltip'
+import ReviewPanelMoreCommentsButton from './review-panel-more-comments-button'
+import useMoreCommments from '../hooks/use-more-comments'
+import { Decoration } from '@codemirror/view'
 
 type AggregatedRanges = {
   changes: Change<EditOperation>[]
@@ -41,11 +44,187 @@ const ReviewPanelCurrentFile: FC = () => {
   const ranges = useRangesContext()
   const threads = useThreadsContext()
   const state = useCodeMirrorStateContext()
+  const [hoveredEntry, setHoveredEntry] = useState<string | null>(null)
+
+  const hoverTimeout = useRef<number>(0)
+  const handleEntryEnter = useCallback((id: string) => {
+    clearTimeout(hoverTimeout.current)
+    setHoveredEntry(id)
+  }, [])
+
+  const handleEntryLeave = useCallback((id: string) => {
+    clearTimeout(hoverTimeout.current)
+    hoverTimeout.current = window.setTimeout(() => {
+      setHoveredEntry(null)
+    }, 100)
+  }, [])
 
   const [aggregatedRanges, setAggregatedRanges] = useState<AggregatedRanges>()
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const previousFocusedItem = useRef(new Map<string, number>())
+
+  const buildAggregatedRanges = useCallback(() => {
+    if (ranges) {
+      const output: AggregatedRanges = {
+        aggregates: new Map(),
+        changes: [],
+        comments: [],
+      }
+
+      let precedingChange: Change<EditOperation> | null = null
+
+      for (const change of ranges.changes) {
+        if (
+          precedingChange &&
+          isInsertChange(precedingChange) &&
+          isDeleteChange(change) &&
+          canAggregate(change, precedingChange)
+        ) {
+          output.aggregates.set(precedingChange.id, change)
+        } else {
+          output.changes.push(change)
+        }
+
+        precedingChange = change
+      }
+
+      if (threads) {
+        for (const comment of ranges.comments) {
+          if (threads[comment.op.t] && !threads[comment.op.t]?.resolved) {
+            output.comments.push(comment)
+          }
+        }
+      }
+
+      setAggregatedRanges(output)
+    }
+  }, [threads, ranges])
+
+  useEffect(() => {
+    buildAggregatedRanges()
+  }, [buildAggregatedRanges])
+
+  useEventListener('editor:viewport-changed', buildAggregatedRanges)
+
+  const [positions, setPositions] = useState<Map<string, number>>(new Map())
+
+  const positionsRef = useRef<Map<string, number>>(new Map())
+
+  const addCommentRanges = state.field(
+    reviewTooltipStateField,
+    false
+  )?.addCommentRanges
+
+  const positionsMeasureRequest = useCallback(() => {
+    if (aggregatedRanges) {
+      view.requestMeasure({
+        key: 'review-panel-position',
+        read(view) {
+          const contentRect = view.contentDOM.getBoundingClientRect()
+          const docLength = view.state.doc.length
+
+          const screenPosition = (position: number): number | undefined => {
+            const pos = Math.min(position, docLength) // TODO: needed?
+            const coords = view.coordsAtPos(pos)
+
+            return coords ? Math.round(coords.top - contentRect.top) : undefined
+          }
+
+          for (const change of aggregatedRanges.changes) {
+            const position = screenPosition(change.op.p)
+            if (position) {
+              positionsRef.current.set(change.id, position)
+            }
+          }
+
+          for (const comment of aggregatedRanges.comments) {
+            const position = screenPosition(comment.op.p)
+            if (position) {
+              positionsRef.current.set(comment.id, position)
+            }
+          }
+
+          if (!addCommentRanges) {
+            return
+          }
+
+          const cursor = addCommentRanges.iter()
+
+          while (cursor.value) {
+            const { from } = cursor
+            const position = screenPosition(from)
+
+            if (position) {
+              positionsRef.current.set(
+                `new-comment-${cursor.value.spec.id}`,
+                position
+              )
+            }
+
+            cursor.next()
+          }
+        },
+        write() {
+          setPositions(new Map(positionsRef.current))
+          window.setTimeout(() => {
+            containerRef.current?.dispatchEvent(
+              new Event('review-panel:position')
+            )
+          })
+        },
+      })
+    }
+  }, [view, aggregatedRanges, addCommentRanges])
+
+  useEffect(positionsMeasureRequest, [positionsMeasureRequest])
+  useEventListener('editor:geometry-change', positionsMeasureRequest)
+
+  const showEmptyState = useMemo(
+    () => hasActiveRange(ranges, threads) === false,
+    [ranges, threads]
+  )
+
+  const addCommentEntries = useMemo(() => {
+    if (!addCommentRanges) {
+      return []
+    }
+
+    const cursor = addCommentRanges.iter()
+
+    const entries = []
+
+    while (cursor.value) {
+      const id = `new-comment-${cursor.value.spec.id}`
+      if (!positions.has(id)) {
+        cursor.next()
+        continue
+      }
+
+      const { from, to } = cursor
+
+      entries.push({
+        id,
+        from,
+        to,
+        value: cursor.value,
+        top: positions.get(id),
+      })
+
+      cursor.next()
+    }
+    return entries
+  }, [addCommentRanges, positions])
+
+  const {
+    onEntriesPositioned,
+    onMoreCommentsAboveClick,
+    onMoreCommentsBelowClick,
+  } = useMoreCommments(
+    aggregatedRanges?.changes ?? [],
+    aggregatedRanges?.comments ?? [],
+    addCommentRanges ?? Decoration.none
+  )
 
   const updatePositions = useCallback(() => {
     const docId = ranges?.docId
@@ -57,6 +236,8 @@ const ReviewPanelCurrentFile: FC = () => {
         docId
       )
 
+      onEntriesPositioned()
+
       if (positioningRes) {
         previousFocusedItem.current.set(
           positioningRes.docId,
@@ -64,7 +245,7 @@ const ReviewPanelCurrentFile: FC = () => {
         )
       }
     }
-  }, [ranges?.docId])
+  }, [ranges?.docId, onEntriesPositioned])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -100,144 +281,6 @@ const ReviewPanelCurrentFile: FC = () => {
     }
   }, [updatePositions])
 
-  const buildAggregatedRanges = useCallback(() => {
-    if (ranges) {
-      const output: AggregatedRanges = {
-        aggregates: new Map(),
-        changes: [],
-        comments: [],
-      }
-
-      let precedingChange: Change<EditOperation> | null = null
-
-      for (const change of ranges.changes) {
-        if (
-          precedingChange &&
-          isInsertChange(precedingChange) &&
-          isDeleteChange(change) &&
-          canAggregate(change, precedingChange)
-        ) {
-          output.aggregates.set(precedingChange.id, change)
-        } else {
-          output.changes.push(change)
-        }
-
-        precedingChange = change
-      }
-
-      if (threads) {
-        for (const comment of ranges.comments) {
-          if (!threads[comment.op.t]?.resolved) {
-            output.comments.push(comment)
-          }
-        }
-      }
-
-      setAggregatedRanges(output)
-    }
-  }, [threads, ranges])
-
-  useEffect(() => {
-    buildAggregatedRanges()
-  }, [buildAggregatedRanges])
-
-  useEventListener('editor:viewport-changed', buildAggregatedRanges)
-
-  const [positions, setPositions] = useState<Map<string, number>>(new Map())
-
-  const positionsRef = useRef<Map<string, number>>(new Map())
-
-  const addCommentRanges = state.field(addCommentStateField).ranges
-
-  useEffect(() => {
-    if (aggregatedRanges) {
-      view.requestMeasure({
-        key: 'review-panel-position',
-        read(view) {
-          const contentRect = view.contentDOM.getBoundingClientRect()
-          const docLength = view.state.doc.length
-
-          const screenPosition = (position: number): number | undefined => {
-            const pos = Math.min(position, docLength) // TODO: needed?
-            const coords = view.coordsAtPos(pos)
-
-            return coords ? Math.round(coords.top - contentRect.top) : undefined
-          }
-
-          for (const change of aggregatedRanges.changes) {
-            const position = screenPosition(change.op.p)
-            if (position) {
-              positionsRef.current.set(change.id, position)
-            }
-          }
-
-          for (const comment of aggregatedRanges.comments) {
-            const position = screenPosition(comment.op.p)
-            if (position) {
-              positionsRef.current.set(comment.id, position)
-            }
-          }
-
-          const cursor = addCommentRanges.iter()
-
-          while (cursor.value) {
-            const { from } = cursor
-            const position = screenPosition(from)
-
-            if (position) {
-              positionsRef.current.set(
-                `new-comment-${cursor.value.spec.id}`,
-                position
-              )
-            }
-
-            cursor.next()
-          }
-        },
-        write() {
-          setPositions(new Map(positionsRef.current))
-          window.setTimeout(() => {
-            containerRef.current?.dispatchEvent(
-              new Event('review-panel:position')
-            )
-          })
-        },
-      })
-    }
-  }, [view, aggregatedRanges, addCommentRanges])
-
-  const showEmptyState = useMemo(
-    () => hasActiveRange(ranges, threads) === false,
-    [ranges, threads]
-  )
-
-  const addCommentEntries = useMemo(() => {
-    const cursor = addCommentRanges.iter()
-
-    const entries = []
-
-    while (cursor.value) {
-      const id = `new-comment-${cursor.value.spec.id}`
-      if (!positions.has(id)) {
-        cursor.next()
-        continue
-      }
-
-      const { from, to } = cursor
-
-      entries.push({
-        id,
-        from,
-        to,
-        value: cursor.value,
-        top: positions.get(id),
-      })
-
-      cursor.next()
-    }
-    return entries
-  }, [addCommentRanges, positions])
-
   if (!aggregatedRanges) {
     return null
   }
@@ -245,6 +288,12 @@ const ReviewPanelCurrentFile: FC = () => {
   return (
     <>
       {showEmptyState && <ReviewPanelEmptyState />}
+      {onMoreCommentsAboveClick && (
+        <ReviewPanelMoreCommentsButton
+          onClick={onMoreCommentsAboveClick}
+          direction="upward"
+        />
+      )}
 
       <div ref={handleContainer}>
         {addCommentEntries.map(entry => {
@@ -270,6 +319,9 @@ const ReviewPanelCurrentFile: FC = () => {
                 change={change}
                 top={positions.get(change.id)}
                 aggregate={aggregatedRanges.aggregates.get(change.id)}
+                hovered={hoveredEntry === change.id}
+                onEnter={() => handleEntryEnter(change.id)}
+                onLeave={() => handleEntryLeave(change.id)}
               />
             )
         )}
@@ -282,10 +334,19 @@ const ReviewPanelCurrentFile: FC = () => {
                 key={comment.id}
                 comment={comment}
                 top={positions.get(comment.id)}
+                hovered={hoveredEntry === comment.id}
+                onEnter={() => handleEntryEnter(comment.id)}
+                onLeave={() => handleEntryLeave(comment.id)}
               />
             )
         )}
       </div>
+      {onMoreCommentsBelowClick && (
+        <ReviewPanelMoreCommentsButton
+          onClick={onMoreCommentsBelowClick}
+          direction="downward"
+        />
+      )}
     </>
   )
 }

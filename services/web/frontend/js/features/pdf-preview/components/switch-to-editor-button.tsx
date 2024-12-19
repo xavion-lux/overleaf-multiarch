@@ -20,12 +20,15 @@ function SwitchToEditorButton() {
 
   function handleClick() {
     setView('editor')
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event('editor:focus'))
+    })
   }
 
   return (
     <OLButton
       variant="secondary"
-      size="small"
+      size="sm"
       onClick={handleClick}
       bs3Props={{
         bsSize: 'xsmall',

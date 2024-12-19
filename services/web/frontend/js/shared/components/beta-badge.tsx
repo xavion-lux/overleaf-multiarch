@@ -1,8 +1,7 @@
-import type { FC, ReactNode } from 'react'
-import classnames from 'classnames'
+import type { FC, MouseEventHandler, ReactNode } from 'react'
 import OLTooltip from '@/features/ui/components/ol/ol-tooltip'
-import MaterialIcon from '@/shared/components/material-icon'
-import BootstrapVersionSwitcher from '@/features/ui/components/bootstrap-5/bootstrap-version-switcher'
+import { bsVersion } from '@/features/utils/bootstrap-5'
+import BetaBadgeIcon from '@/shared/components/beta-badge-icon'
 
 type TooltipProps = {
   id: string
@@ -13,25 +12,42 @@ type TooltipProps = {
   >['placement']
 }
 
-const BetaBadge: FC<{
-  tooltip: TooltipProps
-  url?: string
-  phase?: string
-}> = ({ tooltip, url = '/beta/participate', phase = 'beta' }) => {
-  let badgeClass: 'info-badge' | 'alpha-badge' | 'beta-badge'
-  switch (phase) {
-    case 'release':
-      badgeClass = 'info-badge'
-      break
-    case 'alpha':
-      badgeClass = 'alpha-badge'
-      break
-    case 'beta':
-    default:
-      badgeClass = 'beta-badge'
-  }
+type LinkProps = {
+  href?: string
+  ref?: React.Ref<HTMLAnchorElement>
+  className?: string
+  onMouseDown?: MouseEventHandler<HTMLAnchorElement>
+}
 
-  return (
+const defaultHref = '/beta/participate'
+
+const BetaBadge: FC<{
+  tooltip?: TooltipProps
+  link?: LinkProps
+  description?: ReactNode
+  phase?: string
+}> = ({
+  tooltip,
+  link = { href: defaultHref },
+  description,
+  phase = 'beta',
+}) => {
+  const { href, ...linkProps } = link
+  const linkedBadge = (
+    <a
+      target="_blank"
+      rel="noopener noreferrer"
+      href={href || defaultHref}
+      {...linkProps}
+    >
+      <span className={bsVersion({ bs5: 'visually-hidden', bs3: 'sr-only' })}>
+        {description || tooltip?.text}
+      </span>
+      <BetaBadgeIcon phase={phase} />
+    </a>
+  )
+
+  return tooltip ? (
     <OLTooltip
       id={tooltip.id}
       description={tooltip.text}
@@ -41,19 +57,10 @@ const BetaBadge: FC<{
         delay: 100,
       }}
     >
-      <a href={url} target="_blank" rel="noopener noreferrer">
-        <span className="sr-only">{tooltip.text}</span>
-        <BootstrapVersionSwitcher
-          bs3={<span className={classnames('badge', badgeClass)} />}
-          bs5={
-            <MaterialIcon
-              type="info"
-              className={classnames('align-middle', badgeClass)}
-            />
-          }
-        />
-      </a>
+      {linkedBadge}
     </OLTooltip>
+  ) : (
+    linkedBadge
   )
 }
 

@@ -42,6 +42,7 @@
 @import 'bootstrap-5/scss/close';
 @import 'bootstrap-5/scss/nav';
 @import 'bootstrap-5/scss/navbar';
+@import 'bootstrap-5/scss/offcanvas';
 
 // Helpers
 @import 'bootstrap-5/scss/helpers';
@@ -51,15 +52,3 @@
 
 // Mixins
 @import 'bootstrap-5/scss/mixins/breakpoints';
-
-// Components custom style
-@import '../components/all';
-
-// Custom helpers
-@import '../helpers/all';
-
-// Modals
-@import '../modals/all';
-
-// Pages custom style
-@import '../pages/all';

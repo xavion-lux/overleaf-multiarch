@@ -54,12 +54,18 @@ describe('HistoryManager', function () {
       },
     }
 
+    this.HistoryBackupDeletionHandler = {
+      deleteProject: sinon.stub().resolves(),
+    }
+
     this.HistoryManager = SandboxedModule.require(MODULE_PATH, {
       requires: {
+        '../../infrastructure/mongodb': { ObjectId },
         '@overleaf/fetch-utils': this.FetchUtils,
         '@overleaf/settings': this.settings,
         '../User/UserGetter': this.UserGetter,
         '../Project/ProjectGetter': this.ProjectGetter,
+        './HistoryBackupDeletionHandler': this.HistoryBackupDeletionHandler,
       },
     })
   })
@@ -286,6 +292,12 @@ describe('HistoryManager', function () {
           },
         }
       )
+    })
+
+    it('should call the history-backup-deletion service', async function () {
+      expect(
+        this.HistoryBackupDeletionHandler.deleteProject
+      ).to.have.been.calledWith(projectId)
     })
   })
 })

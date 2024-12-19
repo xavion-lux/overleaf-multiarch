@@ -33,7 +33,7 @@ import {
 } from '../errors'
 import { Folder } from '../../../../../types/folder'
 import { useReferencesContext } from '@/features/ide-react/context/references-context'
-import { useSnapshotContext } from '@/features/ide-react/context/snapshot-context'
+import { usePermissionsContext } from '@/features/ide-react/context/permissions-context'
 
 type DroppedFile = File & {
   relativePath?: string
@@ -221,7 +221,7 @@ export const FileTreeActionableProvider: FC = ({ children }) => {
   const { _id: projectId } = useProjectContext()
   const { fileTreeReadOnly } = useFileTreeData()
   const { indexAllReferences } = useReferencesContext()
-  const { fileTreeFromHistory } = useSnapshotContext()
+  const { write } = usePermissionsContext()
 
   const [state, dispatch] = useReducer(
     fileTreeReadOnly
@@ -494,44 +494,66 @@ export const FileTreeActionableProvider: FC = ({ children }) => {
       const selectedEntity = findInTree(fileTreeData, selectedEntityId)
 
       if (selectedEntity?.type === 'fileRef') {
-        if (fileTreeFromHistory) {
-          return `/project/${projectId}/blob/${selectedEntity.entity.hash}`
-        }
-        return `/project/${projectId}/file/${selectedEntityId}`
+        return `/project/${projectId}/blob/${selectedEntity.entity.hash}?fallback=${selectedEntityId}`
       }
 
       if (selectedEntity?.type === 'doc') {
         return `/project/${projectId}/doc/${selectedEntityId}/download`
       }
     }
-  }, [fileTreeData, projectId, selectedEntityIds, fileTreeFromHistory])
+  }, [fileTreeData, projectId, selectedEntityIds])
 
-  // TODO: wrap in useMemo
-  const value = {
-    canDelete: selectedEntityIds.size > 0 && !isRootFolderSelected,
-    canRename: selectedEntityIds.size === 1 && !isRootFolderSelected,
-    canCreate: selectedEntityIds.size < 2,
-    ...state,
-    parentFolderId,
-    selectedFileName,
-    isDuplicate,
-    startRenaming,
-    finishRenaming,
-    startDeleting,
-    finishDeleting,
-    finishMoving,
-    startCreatingFile,
-    startCreatingFolder,
-    finishCreatingFolder,
-    startCreatingDocOrFile,
-    startUploadingDocOrFile,
-    finishCreatingDoc,
-    finishCreatingLinkedFile,
-    cancel,
-    droppedFiles,
-    setDroppedFiles,
-    downloadPath,
-  }
+  const value = useMemo(
+    () => ({
+      canDelete: write && selectedEntityIds.size > 0 && !isRootFolderSelected,
+      canRename: write && selectedEntityIds.size === 1 && !isRootFolderSelected,
+      canCreate: write && selectedEntityIds.size < 2,
+      ...state,
+      parentFolderId,
+      selectedFileName,
+      isDuplicate,
+      startRenaming,
+      finishRenaming,
+      startDeleting,
+      finishDeleting,
+      finishMoving,
+      startCreatingFile,
+      startCreatingFolder,
+      finishCreatingFolder,
+      startCreatingDocOrFile,
+      startUploadingDocOrFile,
+      finishCreatingDoc,
+      finishCreatingLinkedFile,
+      cancel,
+      droppedFiles,
+      setDroppedFiles,
+      downloadPath,
+    }),
+    [
+      cancel,
+      downloadPath,
+      droppedFiles,
+      finishCreatingDoc,
+      finishCreatingFolder,
+      finishCreatingLinkedFile,
+      finishDeleting,
+      finishMoving,
+      finishRenaming,
+      isDuplicate,
+      isRootFolderSelected,
+      parentFolderId,
+      selectedEntityIds.size,
+      selectedFileName,
+      startCreatingDocOrFile,
+      startCreatingFile,
+      startCreatingFolder,
+      startDeleting,
+      startRenaming,
+      startUploadingDocOrFile,
+      state,
+      write,
+    ]
+  )
 
   return (
     <FileTreeActionableContext.Provider value={value}>

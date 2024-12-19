@@ -61,12 +61,12 @@ describe('SubscriptionController', function () {
 
     this.LimitationsManager = {
       hasPaidSubscription: sinon.stub(),
-      userHasV1OrV2Subscription: sinon.stub(),
-      userHasV2Subscription: sinon.stub(),
+      userHasSubscription: sinon
+        .stub()
+        .yields(null, { hasSubscription: false }),
       promises: {
         hasPaidSubscription: sinon.stub().resolves(),
-        userHasV1OrV2Subscription: sinon.stub().resolves(),
-        userHasV2Subscription: sinon.stub().resolves(),
+        userHasSubscription: sinon.stub().resolves({ hasSubscription: false }),
       },
     }
 
@@ -130,7 +130,6 @@ describe('SubscriptionController', function () {
     this.SplitTestV2Hander = {
       promises: {
         getAssignment: sinon.stub().resolves({ variant: 'default' }),
-        isSplitTestActive: sinon.stub().resolves(true),
       },
     }
     this.SubscriptionHelper = {
@@ -172,6 +171,9 @@ describe('SubscriptionController', function () {
           recordEventForSession: sinon.stub(),
           setUserPropertyForUser: sinon.stub(),
         }),
+        '../../infrastructure/Modules': {
+          promises: { hooks: { fire: sinon.stub().resolves() } },
+        },
         '../../infrastructure/Features': this.Features,
         '../../util/currency': (this.currency = {
           formatCurrencyLocalized: sinon.stub(),
@@ -321,89 +323,60 @@ describe('SubscriptionController', function () {
     })
 
     describe('showLATAMBanner', function () {
-      describe('latam variant', function () {
-        beforeEach(function () {
-          this.SplitTestV2Hander.promises.getAssignment
-            .withArgs(this.req, this.res, 'geo-pricing-latam-v2')
-            .resolves({
-              variant: 'latam',
-            })
+      it('should return true for Mexican users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/plans')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'MX',
         })
-        it('should return true for Mexican users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'MX',
-          })
-          this.SubscriptionController.plansPage(this.req, this.res)
-        })
-        it('should return true for Colombian users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'CO',
-          })
-          this.SubscriptionController.plansPage(this.req, this.res)
-        })
-        it('should return true for Chilean users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'CL',
-          })
-          this.SubscriptionController.plansPage(this.req, this.res)
-        })
-        it('should return true for Peruvian users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'PE',
-          })
-          this.SubscriptionController.plansPage(this.req, this.res)
-        })
-        it('should return true for US users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans')
-            opts.showLATAMBanner.should.equal(false)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'US',
-          })
-          this.SubscriptionController.plansPage(this.req, this.res)
-        })
+        this.SubscriptionController.plansPage(this.req, this.res)
       })
-      describe('default variant', function () {
-        beforeEach(function () {
-          this.SplitTestV2Hander.promises.getAssignment
-            .withArgs(this.req, this.res, 'geo-pricing-latam-v2')
-            .resolves({
-              variant: 'default',
-            })
+      it('should return true for Colombian users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/plans')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'CO',
         })
-        it('should return false', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans')
-            opts.showLATAMBanner.should.equal(false)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'MX',
-          })
-          this.SubscriptionController.plansPage(this.req, this.res)
+        this.SubscriptionController.plansPage(this.req, this.res)
+      })
+      it('should return true for Chilean users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/plans')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'CL',
         })
+        this.SubscriptionController.plansPage(this.req, this.res)
+      })
+      it('should return true for Peruvian users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/plans')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'PE',
+        })
+        this.SubscriptionController.plansPage(this.req, this.res)
+      })
+      it('should return true for US users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/plans')
+          opts.showLATAMBanner.should.equal(false)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'US',
+        })
+        this.SubscriptionController.plansPage(this.req, this.res)
       })
     })
 
@@ -521,6 +494,16 @@ describe('SubscriptionController', function () {
           this.SubscriptionController.plansPage(this.req, this.res)
         })
       })
+    })
+    it('should return correct countryCode', function (done) {
+      this.GeoIpLookup.promises.getCurrencyCode.resolves({
+        countryCode: 'MX',
+      })
+      this.res.render = (page, opts) => {
+        expect(opts.countryCode).to.equal('MX')
+        done()
+      }
+      this.SubscriptionController.plansPage(this.req, this.res)
     })
   })
 
@@ -658,89 +641,60 @@ describe('SubscriptionController', function () {
     })
 
     describe('showLATAMBanner', function () {
-      describe('latam variant', function () {
-        beforeEach(function () {
-          this.SplitTestV2Hander.promises.getAssignment
-            .withArgs(this.req, this.res, 'geo-pricing-latam-v2')
-            .resolves({
-              variant: 'latam',
-            })
+      it('should return true for Mexican users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/plans-light-design')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'MX',
         })
-        it('should return true for Mexican users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans-light-design')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'MX',
-          })
-          this.SubscriptionController.plansPageLightDesign(this.req, this.res)
-        })
-        it('should return true for Colombian users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans-light-design')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'CO',
-          })
-          this.SubscriptionController.plansPageLightDesign(this.req, this.res)
-        })
-        it('should return true for Chilean users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans-light-design')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'CL',
-          })
-          this.SubscriptionController.plansPageLightDesign(this.req, this.res)
-        })
-        it('should return true for Peruvian users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans-light-design')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'PE',
-          })
-          this.SubscriptionController.plansPageLightDesign(this.req, this.res)
-        })
-        it('should return true for US users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans-light-design')
-            opts.showLATAMBanner.should.equal(false)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'US',
-          })
-          this.SubscriptionController.plansPageLightDesign(this.req, this.res)
-        })
+        this.SubscriptionController.plansPageLightDesign(this.req, this.res)
       })
-      describe('default variant', function () {
-        beforeEach(function () {
-          this.SplitTestV2Hander.promises.getAssignment
-            .withArgs(this.req, this.res, 'geo-pricing-latam-v2')
-            .resolves({
-              variant: 'default',
-            })
+      it('should return true for Colombian users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/plans-light-design')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'CO',
         })
-        it('should return false', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/plans-light-design')
-            opts.showLATAMBanner.should.equal(false)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'MX',
-          })
-          this.SubscriptionController.plansPageLightDesign(this.req, this.res)
+        this.SubscriptionController.plansPageLightDesign(this.req, this.res)
+      })
+      it('should return true for Chilean users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/plans-light-design')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'CL',
         })
+        this.SubscriptionController.plansPageLightDesign(this.req, this.res)
+      })
+      it('should return true for Peruvian users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/plans-light-design')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'PE',
+        })
+        this.SubscriptionController.plansPageLightDesign(this.req, this.res)
+      })
+      it('should return true for US users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/plans-light-design')
+          opts.showLATAMBanner.should.equal(false)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'US',
+        })
+        this.SubscriptionController.plansPageLightDesign(this.req, this.res)
       })
     })
 
@@ -769,6 +723,17 @@ describe('SubscriptionController', function () {
         this.SubscriptionController.plansPageLightDesign(this.req, this.res)
       })
     })
+
+    it('should return correct countryCode', function (done) {
+      this.GeoIpLookup.promises.getCurrencyCode.resolves({
+        countryCode: 'MX',
+      })
+      this.res.render = (page, opts) => {
+        expect(opts.countryCode).to.equal('MX')
+        done()
+      }
+      this.SubscriptionController.plansPageLightDesign(this.req, this.res)
+    })
   })
 
   describe('interstitialPaymentPage', function () {
@@ -791,9 +756,9 @@ describe('SubscriptionController', function () {
 
     describe('with a user with subscription', function () {
       it('should redirect to the subscription dashboard', function (done) {
-        this.LimitationsManager.promises.userHasV1OrV2Subscription.resolves(
-          true
-        )
+        this.LimitationsManager.promises.userHasSubscription.resolves({
+          hasSubscription: true,
+        })
         this.res.redirect = url => {
           url.should.equal('/user/subscription?hasSubscription=true')
           done()
@@ -853,108 +818,72 @@ describe('SubscriptionController', function () {
     })
 
     describe('showLATAMBanner', function () {
-      describe('latam variant', function () {
-        beforeEach(function () {
-          this.SplitTestV2Hander.promises.getAssignment
-            .withArgs(this.req, this.res, 'geo-pricing-latam-v2')
-            .resolves({
-              variant: 'latam',
-            })
+      it('should return true for Mexican users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/interstitial-payment')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'MX',
         })
-        it('should return true for Mexican users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/interstitial-payment')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'MX',
-          })
-          this.SubscriptionController.interstitialPaymentPage(
-            this.req,
-            this.res
-          )
-        })
-        it('should return true for Colombian users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/interstitial-payment')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'CO',
-          })
-          this.SubscriptionController.interstitialPaymentPage(
-            this.req,
-            this.res
-          )
-        })
-        it('should return true for Chilean users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/interstitial-payment')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'CL',
-          })
-          this.SubscriptionController.interstitialPaymentPage(
-            this.req,
-            this.res
-          )
-        })
-        it('should return true for Peruvian users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/interstitial-payment')
-            opts.showLATAMBanner.should.equal(true)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'PE',
-          })
-          this.SubscriptionController.interstitialPaymentPage(
-            this.req,
-            this.res
-          )
-        })
-        it('should return true for US users', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/interstitial-payment')
-            opts.showLATAMBanner.should.equal(false)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'US',
-          })
-          this.SubscriptionController.interstitialPaymentPage(
-            this.req,
-            this.res
-          )
-        })
+        this.SubscriptionController.interstitialPaymentPage(this.req, this.res)
       })
-      describe('default variant', function () {
-        beforeEach(function () {
-          this.SplitTestV2Hander.promises.getAssignment
-            .withArgs(this.req, this.res, 'website-redesign-plan')
-            .resolves({
-              variant: 'default',
-            })
+      it('should return true for Colombian users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/interstitial-payment')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'CO',
         })
-        it('should return false', function (done) {
-          this.res.render = (page, opts) => {
-            page.should.equal('subscriptions/interstitial-payment')
-            opts.showLATAMBanner.should.equal(false)
-            done()
-          }
-          this.GeoIpLookup.promises.getCurrencyCode.resolves({
-            countryCode: 'MX',
-          })
-          this.SubscriptionController.interstitialPaymentPage(
-            this.req,
-            this.res
-          )
-        })
+        this.SubscriptionController.interstitialPaymentPage(this.req, this.res)
       })
+      it('should return true for Chilean users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/interstitial-payment')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'CL',
+        })
+        this.SubscriptionController.interstitialPaymentPage(this.req, this.res)
+      })
+      it('should return true for Peruvian users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/interstitial-payment')
+          opts.showLATAMBanner.should.equal(true)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'PE',
+        })
+        this.SubscriptionController.interstitialPaymentPage(this.req, this.res)
+      })
+      it('should return true for US users', function (done) {
+        this.res.render = (page, opts) => {
+          page.should.equal('subscriptions/interstitial-payment')
+          opts.showLATAMBanner.should.equal(false)
+          done()
+        }
+        this.GeoIpLookup.promises.getCurrencyCode.resolves({
+          countryCode: 'US',
+        })
+        this.SubscriptionController.interstitialPaymentPage(this.req, this.res)
+      })
+    })
+
+    it('should return correct countryCode', function (done) {
+      this.GeoIpLookup.promises.getCurrencyCode.resolves({
+        countryCode: 'MX',
+      })
+      this.res.render = (page, opts) => {
+        expect(opts.countryCode).to.equal('MX')
+        done()
+      }
+      this.SubscriptionController.interstitialPaymentPage(this.req, this.res)
     })
   })
 
@@ -982,6 +911,7 @@ describe('SubscriptionController', function () {
           title: 'thank_you',
           personalSubscription: 'foo',
           postCheckoutRedirect: undefined,
+          user: this.user,
         })
         done()
       }
@@ -1024,7 +954,9 @@ describe('SubscriptionController', function () {
           planCodesChangingAtTermEnd: [],
         }
       )
-      this.LimitationsManager.promises.userHasV1OrV2Subscription.resolves(false)
+      this.LimitationsManager.promises.userHasSubscription.resolves({
+        hasSubscription: false,
+      })
       this.res.render = (view, data) => {
         this.data = data
         expect(view).to.equal('subscriptions/dashboard-react')

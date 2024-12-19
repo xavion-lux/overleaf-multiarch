@@ -8,8 +8,8 @@
 
 const Archive = require('archiver')
 const BPromise = require('bluebird')
-const fs = require('fs')
-const { pipeline } = require('stream')
+const fs = require('node:fs')
+const { pipeline } = require('node:stream')
 
 const core = require('overleaf-editor-core')
 
@@ -49,7 +49,7 @@ class ProjectArchive {
   /**
    * @constructor
    * @param {Snapshot} snapshot
-   * @param {?number} timeout in ms
+   * @param {number} [timeout] in ms
    * @classdesc
    * Writes the project snapshot to a zip file.
    */

@@ -13,7 +13,10 @@ export type DefaultNavbarMetadata = {
   enableUpgradeButton: boolean
   suppressNavbarRight: boolean
   suppressNavContentLinks: boolean
+  showCloseIcon?: boolean
   showSubscriptionLink: boolean
+  showSignUpLink: boolean
+  currentUrl: string
   sessionUser?: NavbarSessionUser
   adminUrl?: string
   items: NavbarItemData[]

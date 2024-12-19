@@ -5,7 +5,7 @@ module.exports = AuthorizationManager = {
   assertClientCanViewProject(client, callback) {
     AuthorizationManager._assertClientHasPrivilegeLevel(
       client,
-      ['readOnly', 'readAndWrite', 'owner'],
+      ['readOnly', 'readAndWrite', 'review', 'owner'],
       callback
     )
   },
@@ -14,6 +14,14 @@ module.exports = AuthorizationManager = {
     AuthorizationManager._assertClientHasPrivilegeLevel(
       client,
       ['readAndWrite', 'owner'],
+      callback
+    )
+  },
+
+  assertClientCanReviewProject(client, callback) {
+    AuthorizationManager._assertClientHasPrivilegeLevel(
+      client,
+      ['readAndWrite', 'owner', 'review'],
       callback
     )
   },
@@ -37,6 +45,15 @@ module.exports = AuthorizationManager = {
 
   assertClientCanEditProjectAndDoc(client, docId, callback) {
     AuthorizationManager.assertClientCanEditProject(client, function (error) {
+      if (error) {
+        return callback(error)
+      }
+      AuthorizationManager._assertClientCanAccessDoc(client, docId, callback)
+    })
+  },
+
+  assertClientCanReviewProjectAndDoc(client, docId, callback) {
+    AuthorizationManager.assertClientCanReviewProject(client, function (error) {
       if (error) {
         return callback(error)
       }

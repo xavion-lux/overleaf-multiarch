@@ -1,9 +1,15 @@
 import { CSSProperties, useCallback, useEffect, useState } from 'react'
 import { useCodeMirrorViewContext } from '@/features/source-editor/components/codemirror-context'
+import getMeta from '@/utils/meta'
 
 export const useReviewPanelStyles = (mini: boolean) => {
   const view = useCodeMirrorViewContext()
-  const [styles, setStyles] = useState<CSSProperties>()
+
+  const [styles, setStyles] = useState<CSSProperties>({
+    '--review-panel-header-height': getMeta('ol-isReviewerRoleEnabled')
+      ? '36px'
+      : '69px',
+  } as CSSProperties)
 
   const updateScrollDomVariables = useCallback((element: HTMLDivElement) => {
     const { top, bottom } = element.getBoundingClientRect()

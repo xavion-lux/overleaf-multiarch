@@ -29,9 +29,18 @@
 }
 
 .website-redesign {
-  --link-color: var(--link-web);
-  --link-hover-color: var(--link-web-hover);
-  --link-visited-color: var(--link-web-visited);
+  &:not(.application-page) {
+    --link-color: var(--link-web);
+    --link-hover-color: var(--link-web-hover);
+    --link-visited-color: var(--link-web-visited);
+    --link-hover-text-decoration: underline;
+
+    .notification {
+      --link-color: var(--link-ui);
+      --link-hover-color: var(--link-ui-hover);
+      --link-visited-color: var(--link-ui-visited);
+    }
+  }
 
   // hero section of features, enterprises, and universities will have an image that will overflow the page
 
@@ -40,10 +49,6 @@
   overflow-x: hidden;
 
   a {
-    &:hover {
-      text-decoration: underline;
-    }
-
     &:focus,
     &:focus-visible {
       outline: 0;
@@ -56,6 +61,7 @@
     i {
       vertical-align: middle;
       margin-left: var(--spacing-02);
+      padding-bottom: 3px;
     }
 
     &.link-lg {
@@ -65,6 +71,16 @@
       i {
         font-size: 24px;
         line-height: inherit;
+      }
+    }
+
+    &.link-xl {
+      font-size: var(--font-size-06);
+      line-height: var(--line-height-05);
+
+      i {
+        font-size: var(--font-size-06);
+        line-height: var(--font-size-06);
       }
     }
 
@@ -221,11 +237,134 @@
   .card {
     --bs-card-bg: var(--neutral-10);
     --bs-card-border-radius: var(--border-radius-large);
-    --bs-card-spacer-y: var(--spacing-08);
-    --bs-card-spacer-x: var(--spacing-08);
+
+    &.page-content-card {
+      --bs-card-bg: transparent;
+    }
   }
 
   .badge-premium {
     --badge-font-weight: 600;
+  }
+
+  .content-alt {
+    background-color: var(--bg-light-primary);
+  }
+
+  .page-header {
+    border-bottom-width: 0;
+  }
+
+  .round-background {
+    border-radius: 50%;
+    vertical-align: middle;
+    width: 20px;
+    height: 20px;
+  }
+
+  .green-round-background {
+    @extend .round-background;
+
+    background: var(--green-30);
+  }
+
+  .features-card {
+    display: flex; /* equal heights */
+    flex-wrap: wrap;
+    align-items: center;
+
+    .features-card-media,
+    .features-card-media-right {
+      padding-top: var(--spacing-08);
+      position: relative;
+
+      img.img-responsive {
+        width: 100%;
+      }
+
+      video {
+        box-shadow:
+          0 4px 6px 0 rgb(30 37 48 / 12%),
+          0 8px 16px 0 rgb(30 37 48 / 12%);
+        max-height: 100%;
+        width: auto;
+        width: 100%;
+      }
+
+      @include media-breakpoint-down(lg) {
+        margin-bottom: var(--spacing-11);
+      }
+    }
+
+    @include media-breakpoint-up(lg) {
+      .features-card-media-right {
+        padding-left: var(--spacing-13);
+      }
+
+      .features-card-media {
+        padding-right: var(--spacing-13);
+      }
+    }
+
+    .features-card-description,
+    .features-card-description-list {
+      padding-top: var(--spacing-06);
+
+      p {
+        margin-bottom: var(--spacing-06);
+        font-size: 1.125rem;
+        line-height: 1.333;
+
+        @include media-breakpoint-down(lg) {
+          font-size: 1rem;
+          line-height: 1.375;
+        }
+      }
+    }
+
+    .features-card-description {
+      h3 {
+        font-size: 1.5rem;
+        line-height: 1.4;
+        margin-bottom: var(--spacing-04);
+      }
+    }
+
+    .features-card-description-list {
+      h3 {
+        font-size: 1.875rem;
+        line-height: 1.5;
+      }
+
+      ul.list-simple-text,
+      ul.list-heading-text {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+
+        li {
+          margin-bottom: var(--spacing-05);
+          font-size: 1.125rem;
+          line-height: 1.333;
+          display: flex;
+
+          @include media-breakpoint-down(lg) {
+            font-size: 1rem;
+            line-height: 1.375;
+          }
+        }
+      }
+
+      ul.list-heading-text {
+        li {
+          h4 {
+            margin-top: 0;
+            margin-bottom: var(--spacing-04);
+            font-size: 20px;
+            font-weight: 600;
+          }
+        }
+      }
+    }
   }
 }

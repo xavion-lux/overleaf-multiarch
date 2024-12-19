@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react'
 import { UpdateRange, Version } from '../../services/types/update'
 import TagTooltip from './tag-tooltip'
-import { formatTimeBasedOnYear, isoToUnix } from '../../../utils/format-date'
+import { formatTimeBasedOnYear } from '../../../utils/format-date'
 import HistoryDropdown from './dropdown/history-dropdown'
 import HistoryVersionDetails from './history-version-details'
 import { LoadedLabel } from '../../services/types/label'
@@ -13,6 +13,7 @@ import { ItemSelectionState } from '../../utils/history-details'
 import CompareVersionDropdown from './dropdown/compare-version-dropdown'
 import { CompareVersionDropdownContentLabelsList } from './dropdown/compare-version-dropdown-content'
 import HistoryDropdownContent from '@/features/history/components/change-list/dropdown/history-dropdown-content'
+import { bsVersion } from '@/features/utils/bootstrap-5'
 
 type LabelListItemProps = {
   version: Version
@@ -48,9 +49,9 @@ function LabelListItem({
   const { t } = useTranslation()
 
   // first label
-  const fromVTimestamp = isoToUnix(labels[labels.length - 1].created_at)
+  const fromVTimestamp = Date.parse(labels[labels.length - 1].created_at)
   // most recent label
-  const toVTimestamp = isoToUnix(labels[0].created_at)
+  const toVTimestamp = Date.parse(labels[0].created_at)
 
   const updateRange: UpdateRange = {
     fromV: version,
@@ -91,12 +92,15 @@ function LabelListItem({
             version={version}
             projectId={projectId}
             closeDropdownForItem={closeDropdownForItem}
-            endTimestamp={toVTimestamp * 1000}
+            endTimestamp={toVTimestamp}
           />
         ) : null}
       </HistoryDropdown>
       {selectionState !== 'selected' ? (
-        <div data-testid="compare-icon-version" className="pull-right">
+        <div
+          data-testid="compare-icon-version"
+          className={bsVersion({ bs3: 'pull-right', bs5: 'float-end' })}
+        >
           {selectionState !== 'withinSelected' ? (
             <CompareItems
               updateRange={updateRange}

@@ -20,8 +20,6 @@ import { saveProjectSettings } from '@/features/editor-left-menu/utils/api'
 import { PermissionsLevel } from '@/features/ide-react/types/permissions'
 import { useModalsContext } from '@/features/ide-react/context/modals-context'
 
-type writefullAdButtons = '' | 'try-it' | 'log-in'
-
 export const EditorContext = createContext<
   | {
       cobranding?: {
@@ -45,21 +43,25 @@ export const EditorContext = createContext<
       isProjectOwner: boolean
       isRestrictedTokenMember?: boolean
       isPendingEditor: boolean
-      permissionsLevel: 'readOnly' | 'readAndWrite' | 'owner'
+      permissionsLevel: PermissionsLevel
       deactivateTutorial: (tutorial: string) => void
       inactiveTutorials: string[]
       currentPopup: string | null
       setCurrentPopup: Dispatch<SetStateAction<string | null>>
-      writefullAdClicked: writefullAdButtons
-      setWritefullAdClicked: Dispatch<SetStateAction<writefullAdButtons>>
       setOutOfSync: (value: boolean) => void
+      assistantUpgraded: boolean
+      setAssistantUpgraded: (value: boolean) => void
+      hasPremiumSuggestion: boolean
+      setHasPremiumSuggestion: (value: boolean) => void
+      setPremiumSuggestionResetDate: (date: Date) => void
+      premiumSuggestionResetDate: Date
     }
   | undefined
 >(undefined)
 
 export const EditorProvider: FC = ({ children }) => {
   const ide = useIdeContext()
-  const { id: userId } = useUserContext()
+  const { id: userId, featureUsage } = useUserContext()
   const { role } = useDetachContext()
   const { showGenericMessageModal } = useModalsContext()
 
@@ -94,10 +96,22 @@ export const EditorProvider: FC = ({ children }) => {
     () => getMeta('ol-inactiveTutorials') || []
   )
 
-  const [writefullAdClicked, setWritefullAdClicked] =
-    useState<writefullAdButtons>('')
-
   const [currentPopup, setCurrentPopup] = useState<string | null>(null)
+  const [assistantUpgraded, setAssistantUpgraded] = useState(false)
+  const [hasPremiumSuggestion, setHasPremiumSuggestion] = useState<boolean>(
+    () => {
+      return Boolean(
+        featureUsage?.aiErrorAssistant &&
+          featureUsage?.aiErrorAssistant.remainingUsage > 0
+      )
+    }
+  )
+  const [premiumSuggestionResetDate, setPremiumSuggestionResetDate] =
+    useState<Date>(() => {
+      return featureUsage?.aiErrorAssistant?.resetDate
+        ? new Date(featureUsage.aiErrorAssistant.resetDate)
+        : new Date()
+    })
 
   const isPendingEditor = useMemo(
     () =>
@@ -189,9 +203,13 @@ export const EditorProvider: FC = ({ children }) => {
       deactivateTutorial,
       currentPopup,
       setCurrentPopup,
-      writefullAdClicked,
-      setWritefullAdClicked,
       setOutOfSync,
+      hasPremiumSuggestion,
+      setHasPremiumSuggestion,
+      premiumSuggestionResetDate,
+      setPremiumSuggestionResetDate,
+      assistantUpgraded,
+      setAssistantUpgraded,
     }),
     [
       cobranding,
@@ -210,10 +228,14 @@ export const EditorProvider: FC = ({ children }) => {
       deactivateTutorial,
       currentPopup,
       setCurrentPopup,
-      writefullAdClicked,
-      setWritefullAdClicked,
       outOfSync,
       setOutOfSync,
+      hasPremiumSuggestion,
+      setHasPremiumSuggestion,
+      premiumSuggestionResetDate,
+      setPremiumSuggestionResetDate,
+      assistantUpgraded,
+      setAssistantUpgraded,
     ]
   )
 

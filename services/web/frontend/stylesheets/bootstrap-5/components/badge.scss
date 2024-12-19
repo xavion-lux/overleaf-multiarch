@@ -10,12 +10,20 @@ $max-width: 160px;
   &:not(.badge-tag) {
     max-width: $max-width;
   }
+
+  &.bg-warning {
+    --bs-badge-color: var(--content-warning);
+  }
 }
 
 .badge-prepend {
   margin-right: var(--spacing-02);
   display: flex;
   align-items: center;
+
+  .material-symbols {
+    font-size: inherit;
+  }
 }
 
 .badge-close {
@@ -47,6 +55,7 @@ $max-width: 160px;
   @include text-truncate;
 
   padding: var(--bs-badge-padding-y) 0;
+  min-width: 1em;
 }
 
 .badge-tag {
@@ -92,4 +101,43 @@ $max-width: 160px;
   vertical-align: middle;
   margin-left: 5px;
   font-weight: var(--badge-font-weight);
+}
+
+.badge-link {
+  display: inline-block;
+
+  &.badge-link-light:hover .badge {
+    background-color: var(--neutral-30) !important;
+  }
+
+  &.badge-link-no-max-width {
+    .badge {
+      max-width: none;
+    }
+  }
+
+  .badge {
+    @include body-sm;
+
+    padding: 0 var(--bs-badge-padding-x);
+    transition: background-color 0.15s ease-in-out;
+
+    &:hover {
+      transition: background-color 0.15s ease-in-out;
+    }
+  }
+}
+
+.badge-link-list {
+  display: flex;
+  gap: var(--spacing-05);
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  align-content: flex-start;
+
+  .badge {
+    max-width: 200px;
+  }
 }

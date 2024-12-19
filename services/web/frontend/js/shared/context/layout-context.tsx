@@ -16,7 +16,7 @@ import { DetachRole } from './detach-context'
 import { debugConsole } from '@/utils/debugging'
 import { BinaryFile } from '@/features/file-view/types/binary-file'
 import useScopeEventEmitter from '@/shared/hooks/use-scope-event-emitter'
-import useEventListener from '../hooks/use-event-listener'
+import useEventListener from '@/shared/hooks/use-event-listener'
 
 export type IdeLayout = 'sideBySide' | 'flat'
 export type IdeView = 'editor' | 'file' | 'pdf' | 'history'
@@ -97,7 +97,7 @@ export const LayoutProvider: FC = ({ children }) => {
 
   // whether the review pane is open
   const [reviewPanelOpen, setReviewPanelOpen] =
-    useScopeValue('ui.reviewPanelOpen')
+    useScopeValue<boolean>('ui.reviewPanelOpen')
 
   // whether the review pane is collapsed
   const [miniReviewPanelVisible, setMiniReviewPanelVisible] =
@@ -106,6 +106,23 @@ export const LayoutProvider: FC = ({ children }) => {
   // whether the menu pane is open
   const [leftMenuShown, setLeftMenuShown] =
     useScopeValue<boolean>('ui.leftMenuShown')
+
+  useEventListener(
+    'ui.toggle-left-menu',
+    useCallback(
+      event => {
+        setLeftMenuShown((event as CustomEvent<boolean>).detail)
+      },
+      [setLeftMenuShown]
+    )
+  )
+
+  useEventListener(
+    'ui.toggle-review-panel',
+    useCallback(() => {
+      setReviewPanelOpen(open => !open)
+    }, [setReviewPanelOpen])
+  )
 
   // whether to display the editor and preview side-by-side or full-width ("flat")
   const [pdfLayout, setPdfLayout] = useScopeValue<IdeLayout>('ui.pdfLayout')
@@ -165,17 +182,6 @@ export const LayoutProvider: FC = ({ children }) => {
     detachIsLinked,
     changeLayout,
   ])
-
-  const handleSetReviewPanelOpenEvent = useCallback(
-    (e: Event) => {
-      const event = e as CustomEvent<{ isOpen: boolean }>
-      const { isOpen } = event.detail
-      setReviewPanelOpen(isOpen)
-    },
-    [setReviewPanelOpen]
-  )
-
-  useEventListener('set-review-panel-open', handleSetReviewPanelOpenEvent)
 
   const value = useMemo<LayoutContextValue>(
     () => ({

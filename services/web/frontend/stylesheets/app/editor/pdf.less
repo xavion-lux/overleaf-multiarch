@@ -53,9 +53,6 @@
     outline: none;
   }
 }
-.btn-toggle-logs-label {
-  padding-left: @line-height-computed / 4;
-}
 
 .pdf-toolbar-btn {
   display: inline-block;
@@ -64,7 +61,6 @@
   padding: 4px 2px;
   line-height: 1;
   height: 24px;
-  border-radius: 2px;
   border-radius: @border-radius-base;
 
   &:hover,
@@ -117,14 +113,12 @@
 }
 
 .pdf-viewer,
-.pdf-logs,
 .pdf-errors,
 .pdf-uncompiled {
   .full-size;
   top: @pdf-top-offset;
 }
 
-.pdf-logs,
 .pdf-errors,
 .pdf-uncompiled,
 .pdf-validation-problems {
@@ -326,74 +320,15 @@
 }
 
 :fullscreen {
+  .pdfViewer {
+    min-height: auto !important;
+  }
+
   .pdfjs-viewer-inner {
     overflow-y: hidden !important;
-  }
-}
-
-.pdf-logs {
-  overflow: auto;
-  .alert {
-    font-size: 0.9rem;
-    margin-bottom: @line-height-computed / 2;
-    cursor: pointer;
-    .line-no {
-      float: right;
-      color: @log-line-no-color;
-      font-weight: 700;
-
-      .fa {
-        opacity: 0;
-      }
-    }
-    .entry-message {
-      font-weight: 700;
-      //font-family: @font-family-monospace;
-    }
-    .entry-content {
-      white-space: pre-wrap;
-      font-size: 0.8rem;
-      //font-family: @font-family-monospace;
-    }
-
-    &:hover .line-no {
-      color: inherit;
-      .fa {
-        opacity: 1;
-      }
-    }
-
-    &.alert-danger {
-      background-color: tint(@alert-danger-bg, 15%);
-      &:hover {
-        background-color: @alert-danger-bg;
-      }
-    }
-
-    &.alert-warning {
-      background-color: tint(@alert-warning-bg, 15%);
-      &:hover {
-        background-color: @alert-warning-bg;
-      }
-    }
-
-    &.alert-info {
-      background-color: tint(@alert-info-bg, 15%);
-      &:hover {
-        background-color: @alert-info-bg;
-      }
-    }
-  }
-  pre {
-    font-size: 12px;
-    white-space: pre-wrap;
-  }
-  .dropdown {
-    position: relative;
-  }
-  .force-recompile {
-    margin-top: 10px;
-    text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 
@@ -446,23 +381,7 @@
   }
 }
 
-.synctex-control-goto-pdf > .synctex-control-icon {
-  text-indent: 1px; // "Optical" adjustment.
-  &::before {
-    content: '\f061';
-  }
-}
-.synctex-control-goto-code > .synctex-control-icon {
-  text-indent: -1px; // "Optical" adjustment.
-  &::before {
-    content: '\f060';
-  }
-}
-
 .editor-dark {
-  .pdf-logs {
-    background-color: lighten(@editor-dark-background-color, 10%);
-  }
   .pdfjs-viewer {
     background-color: lighten(@editor-dark-background-color, 10%);
   }
@@ -621,30 +540,15 @@
 
 @editor-and-logs-pane-toolbars-height: @toolbar-small-height + @toolbar-height;
 @btn-small-height: (@padding-small-vertical * 2)+ (@font-size-small *
-      @line-height-small);
+      @line-height-small); // 5px * 2 + 14px * 1.5 = 31px
 
-#download-dropdown-list,
 #dropdown-files-logs-pane-list {
   overflow-y: auto;
   .dropdown-header {
     white-space: nowrap;
   }
-}
-#download-dropdown-list {
-  max-height: calc(
-    ~'100vh - ' @editor-and-logs-pane-toolbars-height ~' - ' @margin-md
-  );
-}
-#dropdown-files-logs-pane-list {
   max-height: calc(
     ~'100vh - ' @editor-and-logs-pane-toolbars-height ~' - ' @btn-small-height ~' - '
       @margin-md
   );
-}
-
-.btn-secondary-compile-timeout-override {
-  color: #1b222c;
-  background-color: #ffffff;
-  border-color: #677283;
-  border-width: 1px;
 }

@@ -3,11 +3,11 @@
 const _ = require('lodash')
 const { expect } = require('chai')
 const config = require('config')
-const fs = require('fs')
-const path = require('path')
-const { Readable } = require('stream')
+const fs = require('node:fs')
+const path = require('node:path')
+const { Readable } = require('node:stream')
 const temp = require('temp').track()
-const { promisify } = require('util')
+const { promisify } = require('node:util')
 
 const cleanup = require('./support/cleanup')
 const testFiles = require('./support/test_files')
@@ -22,6 +22,7 @@ const {
 } = require('../../../../storage')
 const mongoBackend = require('../../../../storage/lib/blob_store/mongo')
 const postgresBackend = require('../../../../storage/lib/blob_store/postgres')
+const { getProjectBlobsBatch } = require('../../../../storage/lib/blob_store')
 
 const mkTmpDir = promisify(temp.mkdir)
 
@@ -84,6 +85,11 @@ describe('BlobStore', function () {
       const blobStore2 = new BlobStore(scenario.projectId2)
 
       beforeEach('initialize the blob stores', async function () {
+        await blobStore.initialize()
+        await blobStore2.initialize()
+      })
+
+      it('can initialize a project again without throwing an error', async function () {
         await blobStore.initialize()
         await blobStore2.initialize()
       })
@@ -254,6 +260,16 @@ describe('BlobStore', function () {
             testFiles.GRAPH_PNG_HASH,
           ])
         })
+
+        it('getProjectBlobs() returns all blobs in the project', async function () {
+          const blobs = await blobStore.getProjectBlobs()
+          const hashes = blobs.map(blob => blob.getHash())
+          expect(hashes).to.have.members([
+            testFiles.HELLO_TXT_HASH,
+            testFiles.GRAPH_PNG_HASH,
+            helloWorldHash,
+          ])
+        })
       })
 
       describe('two blob stores on different projects', function () {
@@ -312,6 +328,31 @@ describe('BlobStore', function () {
             'expected Blob.NotFoundError when calling blobStore.getStream()'
           )
         })
+
+        if (scenario.backend !== mongoBackend) {
+          // mongo backend has its own test for this, covering sharding
+          it('getProjectBlobsBatch() returns blobs per project', async function () {
+            const projects = [
+              parseInt(scenario.projectId, 10),
+              parseInt(scenario.projectId2, 10),
+            ]
+            const { nBlobs, blobs } =
+              await postgresBackend.getProjectBlobsBatch(projects)
+            expect(nBlobs).to.equal(2)
+            expect(Object.fromEntries(blobs.entries())).to.deep.equal({
+              [parseInt(scenario.projectId, 10)]: [
+                new Blob(helloWorldHash, 11, 11),
+              ],
+              [parseInt(scenario.projectId2, 10)]: [
+                new Blob(
+                  testFiles.GRAPH_PNG_HASH,
+                  testFiles.GRAPH_PNG_BYTE_LENGTH,
+                  null
+                ),
+              ],
+            })
+          })
+        }
       })
 
       describe('a global blob', function () {
@@ -437,6 +478,103 @@ describe('BlobStore', function () {
           expect(content).to.equal(globalBlobString)
         })
       })
+
+      describe('copyBlob method', function () {
+        it('copies a binary blob to another project in the same backend', async function () {
+          const testFile = 'graph.png'
+          const originalHash = testFiles.GRAPH_PNG_HASH
+          const insertedBlob = await blobStore.putFile(testFiles.path(testFile))
+          await blobStore.copyBlob(insertedBlob, scenario.projectId2)
+          const copiedBlob = await blobStore2.getBlob(originalHash)
+          expect(copiedBlob.getHash()).to.equal(originalHash)
+          expect(copiedBlob.getByteLength()).to.equal(
+            insertedBlob.getByteLength()
+          )
+          expect(copiedBlob.getStringLength()).to.be.null
+        })
+
+        it('copies a text blob to another project in the same backend', async function () {
+          const insertedBlob = await blobStore.putString(helloWorldString)
+          await blobStore.copyBlob(insertedBlob, scenario.projectId2)
+          const copiedBlob = await blobStore2.getBlob(helloWorldHash)
+          expect(copiedBlob.getHash()).to.equal(helloWorldHash)
+          const content = await blobStore2.getString(helloWorldHash)
+          expect(content).to.equal(helloWorldString)
+        })
+      })
+
+      describe('copyBlob method with different backends', function () {
+        const otherScenario = scenarios.find(
+          s => s.backend !== scenario.backend
+        )
+        const otherBlobStore = new BlobStore(otherScenario.projectId2)
+
+        beforeEach(async function () {
+          await otherBlobStore.initialize()
+        })
+
+        it('copies a binary blob to another project in a different backend', async function () {
+          const testFile = 'graph.png'
+          const originalHash = testFiles.GRAPH_PNG_HASH
+          const insertedBlob = await blobStore.putFile(testFiles.path(testFile))
+          await blobStore.copyBlob(insertedBlob, otherScenario.projectId2)
+          const copiedBlob = await otherBlobStore.getBlob(originalHash)
+          expect(copiedBlob).to.exist
+          expect(copiedBlob.getHash()).to.equal(originalHash)
+          expect(copiedBlob.getByteLength()).to.equal(
+            insertedBlob.getByteLength()
+          )
+          expect(copiedBlob.getStringLength()).to.be.null
+        })
+
+        it('copies a text blob to another project in a different backend', async function () {
+          const insertedBlob = await blobStore.putString(helloWorldString)
+          await blobStore.copyBlob(insertedBlob, otherScenario.projectId2)
+          const copiedBlob = await otherBlobStore.getBlob(helloWorldHash)
+          expect(copiedBlob).to.exist
+          expect(copiedBlob.getHash()).to.equal(helloWorldHash)
+          const content = await otherBlobStore.getString(helloWorldHash)
+          expect(content).to.equal(helloWorldString)
+        })
+      })
     })
   }
+
+  it('getProjectBlobsBatch() with mixed projects', async function () {
+    for (const scenario of scenarios) {
+      const blobStore = new BlobStore(scenario.projectId)
+      const blobStore2 = new BlobStore(scenario.projectId2)
+      await blobStore.initialize()
+      await blobStore.putString(helloWorldString)
+      await blobStore2.initialize()
+      await blobStore2.putFile(testFiles.path('graph.png'))
+    }
+
+    const projects = [
+      parseInt(scenarios[0].projectId, 10),
+      scenarios[1].projectId,
+      parseInt(scenarios[0].projectId2, 10),
+      scenarios[1].projectId2,
+    ]
+    const { nBlobs, blobs } = await getProjectBlobsBatch(projects)
+    expect(nBlobs).to.equal(4)
+    expect(Object.fromEntries(blobs.entries())).to.deep.equal({
+      [scenarios[0].projectId]: [new Blob(helloWorldHash, 11, 11)],
+      [scenarios[1].projectId]: [new Blob(helloWorldHash, 11, 11)],
+      [scenarios[0].projectId2]: [
+        new Blob(
+          testFiles.GRAPH_PNG_HASH,
+          testFiles.GRAPH_PNG_BYTE_LENGTH,
+          null
+        ),
+      ],
+      [scenarios[1].projectId2]: [
+        new Blob(
+          testFiles.GRAPH_PNG_HASH,
+          testFiles.GRAPH_PNG_BYTE_LENGTH,
+          null
+        ),
+      ],
+    })
+  })
 })

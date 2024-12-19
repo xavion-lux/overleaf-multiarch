@@ -1,6 +1,6 @@
 import { useProjectContext } from '../../../shared/context/project-context'
-import { useSnapshotContext } from '@/features/ide-react/context/snapshot-context'
 import { BinaryFile } from '@/features/file-view/types/binary-file'
+import { fileUrl } from '../../utils/fileUrl'
 
 export default function FileViewImage({
   file,
@@ -12,15 +12,9 @@ export default function FileViewImage({
   onError: () => void
 }) {
   const { _id: projectId } = useProjectContext()
-  const { fileTreeFromHistory } = useSnapshotContext()
-
   return (
     <img
-      src={
-        fileTreeFromHistory
-          ? `/project/${projectId}/blob/${file.hash}`
-          : `/project/${projectId}/file/${file.id}`
-      }
+      src={fileUrl(projectId, file.id, file.hash)}
       onLoad={onLoad}
       onError={onError}
       alt={file.name}

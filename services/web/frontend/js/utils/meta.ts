@@ -20,6 +20,7 @@ import {
   Institution as InstitutionType,
   Notification as NotificationType,
   PendingGroupSubscriptionEnrollment,
+  USGovBannerVariant,
 } from '../../../types/project/dashboard/notification'
 import { Survey } from '../../../types/project/dashboard/survey'
 import { GetProjectsResponseBody } from '../../../types/project/dashboard/api'
@@ -46,18 +47,21 @@ import { PasswordStrengthOptions } from '../../../types/password-strength-option
 import { Subscription as ProjectDashboardSubscription } from '../../../types/project/dashboard/subscription'
 import { ThirdPartyIds } from '../../../types/third-party-ids'
 import { Publisher } from '../../../types/subscription/dashboard/publisher'
+import { SubscriptionChangePreview } from '../../../types/subscription/subscription-change-preview'
 import { DefaultNavbarMetadata } from '@/features/ui/components/types/default-navbar-metadata'
-import { FatFooterMetadata } from '@/features/ui/components/types/fat-footer-metadata'
+import { FooterMetadata } from '@/features/ui/components/types/footer-metadata'
 export interface Meta {
   'ol-ExposedSettings': ExposedSettings
   'ol-allInReconfirmNotificationPeriods': UserEmailData[]
   'ol-allowedExperiments': string[]
   'ol-allowedImageNames': AllowedImageName[]
   'ol-anonymous': boolean
+  'ol-baseAssetPath': string
   'ol-bootstrapVersion': 3 | 5
   'ol-brandVariation': Record<string, any>
 
   // dynamic keys based on permissions
+  'ol-canUseFlexibleLicensing': boolean
   'ol-cannot-add-secondary-email': boolean
   'ol-cannot-change-password': boolean
   'ol-cannot-delete-own-account': boolean
@@ -67,6 +71,7 @@ export interface Meta {
   'ol-cannot-link-other-third-party-sso': boolean
   'ol-cannot-reactivate-subscription': boolean
   'ol-cannot-use-ai': boolean
+  'ol-chatEnabled': boolean
   'ol-countryCode': PricingFormState['country']
   'ol-couponCode': PricingFormState['coupon']
   'ol-createdAt': Date
@@ -76,6 +81,7 @@ export interface Meta {
   'ol-currentUrl': string
   'ol-debugPdfDetach': boolean
   'ol-detachRole': 'detached' | 'detacher' | ''
+  'ol-dictionariesRoot': 'string'
   'ol-dropbox': { error: boolean; registered: boolean }
   'ol-editorThemes': string[]
   'ol-email': string
@@ -83,8 +89,9 @@ export interface Meta {
   'ol-error': { name: string } | undefined
   'ol-expired': boolean
   'ol-features': Features
-  'ol-footer': FatFooterMetadata
+  'ol-footer': FooterMetadata
   'ol-fromPlansPage': boolean
+  'ol-galleryTagName': string
   'ol-gitBridgeEnabled': boolean
   'ol-gitBridgePublicBaseUrl': string
   'ol-github': { enabled: boolean; error: boolean }
@@ -116,6 +123,7 @@ export interface Meta {
   'ol-isProfessional': boolean
   'ol-isRegisteredViaGoogle': boolean
   'ol-isRestrictedTokenMember': boolean
+  'ol-isReviewerRoleEnabled': boolean
   'ol-isSaas': boolean
   'ol-itm_campaign': string
   'ol-itm_content': string
@@ -124,6 +132,7 @@ export interface Meta {
   'ol-languages': SpellCheckLanguage[]
   'ol-learnedWords': string[]
   'ol-legacyEditorThemes': string[]
+  'ol-licenseQuantity': number | undefined
   'ol-linkSharingEnforcement': boolean
   'ol-linkSharingWarning': boolean
   'ol-loadingText': string
@@ -169,6 +178,7 @@ export interface Meta {
   'ol-settingsGroupSSO': { enabled: boolean } | undefined
   'ol-settingsPlans': Plan[]
   'ol-shouldAllowEditingDetails': boolean
+  'ol-shouldLoadHotjar': boolean
   'ol-showAiErrorAssistant': boolean
   'ol-showBrlGeoBanner': boolean
   'ol-showCouponField': boolean
@@ -178,6 +188,7 @@ export interface Meta {
   'ol-showSupport': boolean
   'ol-showSymbolPalette': boolean
   'ol-showTemplatesServerPro': boolean
+  'ol-showUSGovBanner': boolean
   'ol-showUpgradePrompt': boolean
   'ol-skipUrl': string
   'ol-splitTestInfo': { [name: string]: SplitTestInfo }
@@ -185,6 +196,7 @@ export interface Meta {
   'ol-ssoDisabled': boolean
   'ol-ssoErrorMessage': string
   'ol-subscription': any // TODO: mixed types, split into two fields
+  'ol-subscriptionChangePreview': SubscriptionChangePreview
   'ol-subscriptionId': string
   'ol-suggestedLanguage': SuggestedLanguage | undefined
   'ol-survey': Survey | undefined
@@ -192,10 +204,12 @@ export interface Meta {
   'ol-tags': Tag[]
   'ol-teamInvites': TeamInvite[]
   'ol-thirdPartyIds': ThirdPartyIds
+  'ol-totalLicenses': number
   'ol-translationIoNotLoaded': string
   'ol-translationLoadErrorMessage': string
   'ol-translationMaintenance': string
   'ol-translationUnableToJoin': string
+  'ol-usGovBannerVariant': USGovBannerVariant
   'ol-useShareJsHash': boolean
   'ol-usedLatex': 'never' | 'occasionally' | 'often' | undefined
   'ol-user': User

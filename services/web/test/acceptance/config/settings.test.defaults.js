@@ -55,10 +55,6 @@ module.exports = {
     documentupdater: {
       url: 'http://127.0.0.1:23003',
     },
-    spelling: {
-      url: 'http://127.0.0.1:23005',
-      host: '127.0.0.1',
-    },
     docstore: {
       url: 'http://127.0.0.1:23016',
       pubUrl: 'http://127.0.0.1:23016',
@@ -90,6 +86,11 @@ module.exports = {
       user: 'overleaf',
       pass: 'password',
     },
+    historyBackupDeletion: {
+      url: `http://127.0.0.1:23101`,
+      user: 'overleaf',
+      pass: 'password',
+    },
     webpack: {
       url: 'http://127.0.0.1:23808',
     },
@@ -108,11 +109,13 @@ module.exports = {
       references: false,
       referencesSearch: false,
       mendeley: true,
+      papers: true,
       zotero: true,
       compileTimeout: 60,
       compileGroup: 'standard',
       trackChanges: false,
       symbolPalette: false,
+      aiErrorAssistant: false,
     },
     personal: {
       collaborators: 1,
@@ -123,11 +126,13 @@ module.exports = {
       references: false,
       referencesSearch: false,
       mendeley: false,
+      papers: false,
       zotero: false,
       compileTimeout: 60,
       compileGroup: 'standard',
       trackChanges: false,
       symbolPalette: false,
+      aiErrorAssistant: false,
     },
     collaborator: {
       collaborators: 10,
@@ -138,11 +143,13 @@ module.exports = {
       references: true,
       referencesSearch: true,
       mendeley: true,
+      papers: true,
       zotero: true,
       compileTimeout: 180,
       compileGroup: 'priority',
       trackChanges: true,
       symbolPalette: true,
+      aiErrorAssistant: false,
     },
     professional: {
       collaborators: -1,
@@ -153,11 +160,13 @@ module.exports = {
       references: true,
       referencesSearch: true,
       mendeley: true,
+      papers: true,
       zotero: true,
       compileTimeout: 180,
       compileGroup: 'priority',
       trackChanges: true,
       symbolPalette: true,
+      aiErrorAssistant: false,
     },
   }),
 

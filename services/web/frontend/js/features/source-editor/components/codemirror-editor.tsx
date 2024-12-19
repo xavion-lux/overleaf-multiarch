@@ -12,12 +12,13 @@ import importOverleafModules from '../../../../macros/import-overleaf-module.mac
 import { FigureModal } from './figure-modal/figure-modal'
 import { ReviewPanelProviders } from '@/features/review-panel-new/context/review-panel-providers'
 import { ReviewPanelMigration } from '@/features/source-editor/components/review-panel/review-panel-migration'
-import AddCommentTooltip from '@/features/review-panel-new/components/add-comment-tooltip'
+import ReviewTooltipMenu from '@/features/review-panel-new/components/review-tooltip-menu'
 import { useFeatureFlag } from '@/shared/context/split-test-context'
 import {
   CodeMirrorStateContext,
   CodeMirrorViewContext,
 } from './codemirror-context'
+import MathPreviewTooltip from './math-preview-tooltip'
 
 // TODO: remove this when definitely no longer used
 export * from './codemirror-context'
@@ -39,6 +40,7 @@ function CodeMirrorEditor() {
   const isMounted = useIsMounted()
 
   const newReviewPanel = useFeatureFlag('review-panel-redesign')
+  const enableMathPreview = useFeatureFlag('math-preview')
 
   // create the view using the initial state and intercept transactions
   const viewRef = useRef<EditorView | null>(null)
@@ -78,7 +80,8 @@ function CodeMirrorEditor() {
           )}
           <CodeMirrorCommandTooltip />
 
-          {newReviewPanel && <AddCommentTooltip />}
+          {enableMathPreview && <MathPreviewTooltip />}
+          {newReviewPanel && <ReviewTooltipMenu />}
           <ReviewPanelMigration />
 
           {sourceEditorComponents.map(

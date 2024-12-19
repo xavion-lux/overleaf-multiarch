@@ -1,3 +1,5 @@
+@import '../../abstracts/variables';
+
 :root {
   --toolbar-border-color: var(--neutral-80);
   --toolbar-header-bg-color: var(--neutral-90);
@@ -7,6 +9,9 @@
   --toolbar-btn-hover-color: var(--white);
   --toolbar-btn-active-color: var(--white);
   --toolbar-btn-active-bg-color: var(--green-50);
+  --toolbar-height: #{$toolbar-height};
+  --toolbar-small-height: #{$toolbar-small-height};
+  --toolbar-alt-bg-color: var(--neutral-80);
   --formatting-btn-color: var(--white);
   --formatting-btn-bg: var(--neutral-80);
   --formatting-btn-border: var(--neutral-70);
@@ -27,6 +32,7 @@
   --toolbar-btn-hover-bg-color: var(--neutral-10);
   --toolbar-btn-hover-color: var(--neutral-70);
   --toolbar-btn-active-bg-color: var(--green-50);
+  --toolbar-alt-bg-color: var(--white);
   --formatting-btn-color: var(--neutral-70);
   --formatting-btn-bg: transparent;
   --formatting-btn-border: var(--neutral-20);
@@ -43,7 +49,6 @@
   display: flex;
   align-items: center;
   height: var(--toolbar-height);
-  min-height: var(--toolbar-height);
   border-bottom: 1px solid var(--toolbar-border-color);
 
   button {
@@ -206,8 +211,6 @@
   }
 
   &.toolbar-header {
-    --toolbar-height: 40px;
-
     align-items: stretch;
     background-color: var(--toolbar-header-bg-color);
     position: absolute;
@@ -220,6 +223,10 @@
   .toolbar-item {
     display: flex;
   }
+}
+
+.layout-dropdown .dropdown-item {
+  align-items: center;
 }
 
 .header-cobranding-logo {
@@ -313,7 +320,7 @@
 }
 
 .toolbar-editor {
-  height: 32px;
+  height: var(--toolbar-small-height);
   background-color: var(--editor-toolbar-bg);
   padding: 0 5px;
   overflow: hidden;
@@ -326,20 +333,25 @@
 ***************************************/
 
 .toggle-switch {
+  --toggle-switch-height: 26px;
+  --toggle-switch-padding: var(--spacing-01);
+
   display: inline-flex;
   align-items: center;
-  height: 26px;
+  height: var(--toggle-switch-height);
   margin-right: var(--spacing-03);
   border-radius: var(--border-radius-full);
   background-color: var(--neutral-20);
-  padding: var(--spacing-01);
+  padding: var(--toggle-switch-padding);
 }
 
 .toggle-switch-label {
   display: inline-block;
   float: left;
   font-weight: normal;
-  height: 100%;
+
+  // It seems we need to set the height explicitly rather than using 100% to get the button to display correctly in Blink
+  height: calc(var(--toggle-switch-height) - 2 * var(--toggle-switch-padding));
   text-align: center;
   margin: 0;
   cursor: pointer;

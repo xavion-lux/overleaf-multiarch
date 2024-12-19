@@ -19,6 +19,8 @@ export type ExposedSettings = {
   hasLinkedProjectOutputFileFeature: boolean
   hasSamlBeta?: boolean
   hasSamlFeature: boolean
+  hotjarId?: string
+  hotjarVersion?: string
   ieeeBrandId: number
   isOverleaf: boolean
   maxEntitiesPerProject: number
@@ -45,7 +47,6 @@ export type ExposedSettings = {
   fileIgnorePattern: string
   templateLinks?: TemplateLink[]
   labsEnabled: boolean
-  groupSSOEnabled?: boolean
   wikiEnabled?: boolean
   templatesEnabled?: boolean
 }

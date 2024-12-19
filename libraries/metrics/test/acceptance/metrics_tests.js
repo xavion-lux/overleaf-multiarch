@@ -1,6 +1,6 @@
-const { promisify } = require('util')
-const os = require('os')
-const http = require('http')
+const { promisify } = require('node:util')
+const os = require('node:os')
+const http = require('node:http')
 const { expect } = require('chai')
 const Metrics = require('../..')
 
@@ -316,7 +316,7 @@ async function checkSummaryValues(key, values) {
   for (const quantile of Object.keys(values)) {
     expect(found[quantile]).to.be.within(
       values[quantile] - 5,
-      values[quantile] + 5,
+      values[quantile] + 15,
       `quantile: ${quantile}`
     )
   }

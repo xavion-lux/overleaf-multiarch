@@ -332,13 +332,14 @@ const addFile = wrapWithLock({
     if (!SafePath.isCleanFilename(fileName)) {
       throw new Errors.InvalidNameError('invalid element name')
     }
-    const { url, fileRef } = await ProjectEntityUpdateHandler._uploadFile(
-      projectId,
-      folderId,
-      fileName,
-      fsPath,
-      linkedFileData
-    )
+    const { url, fileRef, createdBlob } =
+      await ProjectEntityUpdateHandler._uploadFile(
+        projectId,
+        folderId,
+        fileName,
+        fsPath,
+        linkedFileData
+      )
 
     return {
       projectId,
@@ -346,6 +347,7 @@ const addFile = wrapWithLock({
       userId,
       fileRef,
       fileStoreUrl: url,
+      createdBlob,
       source,
     }
   },
@@ -355,6 +357,7 @@ const addFile = wrapWithLock({
     userId,
     fileRef,
     fileStoreUrl,
+    createdBlob,
     source,
   }) {
     const { result, project } =
@@ -366,6 +369,7 @@ const addFile = wrapWithLock({
     const projectHistoryId = project.overleaf?.history?.id
     const newFiles = [
       {
+        createdBlob,
         file: fileRef,
         path: result && result.path && result.path.fileSystem,
         url: fileStoreUrl,
@@ -384,7 +388,7 @@ const addFile = wrapWithLock({
       .catch(error => {
         logger.error({ error }, 'failed to mark project as updated')
       })
-    return { fileRef, folderId }
+    return { fileRef, folderId, createdBlob }
   },
 })
 
@@ -511,6 +515,24 @@ const upsertDoc = wrapWithLock(
   }
 )
 
+const appendToDoc = wrapWithLock(
+  async (projectId, docId, lines, source, userId) => {
+    const { element } = await ProjectLocator.promises.findElement({
+      project_id: projectId,
+      element_id: docId,
+      type: 'doc',
+    })
+
+    return await DocumentUpdaterHandler.promises.appendToDocument(
+      projectId,
+      element._id,
+      userId,
+      lines,
+      source
+    )
+  }
+)
+
 const upsertFile = wrapWithLock({
   async beforeLock(
     projectId,
@@ -529,11 +551,12 @@ const upsertFile = wrapWithLock({
       name: fileName,
       linkedFileData,
     }
-    const { url, fileRef } = await FileStoreHandler.promises.uploadFileFromDisk(
-      projectId,
-      fileArgs,
-      fsPath
-    )
+    const { url, fileRef, createdBlob } =
+      await FileStoreHandler.promises.uploadFileFromDisk(
+        projectId,
+        fileArgs,
+        fsPath
+      )
 
     return {
       projectId,
@@ -544,6 +567,7 @@ const upsertFile = wrapWithLock({
       userId,
       fileRef,
       fileStoreUrl: url,
+      createdBlob,
       source,
     }
   },
@@ -554,6 +578,7 @@ const upsertFile = wrapWithLock({
     userId,
     fileRef,
     fileStoreUrl,
+    createdBlob,
     source,
   }) {
     let element
@@ -596,7 +621,9 @@ const upsertFile = wrapWithLock({
       const projectHistoryId = project.overleaf?.history?.id
       await TpdsUpdateSender.promises.addFile({
         projectId: project._id,
+        historyId: projectHistoryId,
         fileId: fileRef._id,
+        hash: fileRef.hash,
         path: path.fileSystem,
         rev: fileRef.rev,
         projectName: project.name,
@@ -611,6 +638,7 @@ const upsertFile = wrapWithLock({
 
           newFiles: [
             {
+              createdBlob,
               file: fileRef,
               path: path.fileSystem,
               url: fileStoreUrl,
@@ -635,7 +663,8 @@ const upsertFile = wrapWithLock({
         fileRef,
         fileStoreUrl,
         folderId,
-        source
+        source,
+        createdBlob
       )
 
       return { fileRef, isNew: false, oldFileRef: existingFile }
@@ -647,6 +676,7 @@ const upsertFile = wrapWithLock({
         userId,
         fileRef,
         fileStoreUrl,
+        createdBlob,
         source,
       })
 
@@ -704,12 +734,15 @@ const upsertFileWithPath = wrapWithLock({
       name: fileName,
       linkedFileData,
     }
-    const { url: fileStoreUrl, fileRef } =
-      await FileStoreHandler.promises.uploadFileFromDisk(
-        projectId,
-        fileArgs,
-        fsPath
-      )
+    const {
+      url: fileStoreUrl,
+      fileRef,
+      createdBlob,
+    } = await FileStoreHandler.promises.uploadFileFromDisk(
+      projectId,
+      fileArgs,
+      fsPath
+    )
 
     return {
       projectId,
@@ -720,6 +753,7 @@ const upsertFileWithPath = wrapWithLock({
       userId,
       fileRef,
       fileStoreUrl,
+      createdBlob,
       source,
     }
   },
@@ -732,6 +766,7 @@ const upsertFileWithPath = wrapWithLock({
     userId,
     fileRef,
     fileStoreUrl,
+    createdBlob,
     source,
   }) {
     const { newFolders, folder } =
@@ -753,6 +788,7 @@ const upsertFileWithPath = wrapWithLock({
       userId,
       fileRef,
       fileStoreUrl,
+      createdBlob,
       source,
     })
 
@@ -1040,12 +1076,15 @@ const convertDocToFile = wrapWithLock({
     }
     await DocumentUpdaterHandler.promises.deleteDoc(projectId, docId, false)
     const fsPath = await FileWriter.promises.writeLinesToDisk(projectId, lines)
-    const { url: fileStoreUrl, fileRef } =
-      await FileStoreHandler.promises.uploadFileFromDisk(
-        projectId,
-        { name: doc.name, rev: rev + 1 },
-        fsPath
-      )
+    const {
+      url: fileStoreUrl,
+      fileRef,
+      createdBlob,
+    } = await FileStoreHandler.promises.uploadFileFromDisk(
+      projectId,
+      { name: doc.name, rev: rev + 1 },
+      fsPath
+    )
     try {
       await fs.promises.unlink(fsPath)
     } catch (err) {
@@ -1059,6 +1098,7 @@ const convertDocToFile = wrapWithLock({
       fileStoreUrl,
       userId,
       source,
+      createdBlob,
     }
   },
   async withLock({
@@ -1069,6 +1109,7 @@ const convertDocToFile = wrapWithLock({
     fileStoreUrl,
     userId,
     source,
+    createdBlob,
   }) {
     const project =
       await ProjectEntityMongoUpdateHandler.promises.replaceDocWithFile(
@@ -1083,7 +1124,7 @@ const convertDocToFile = wrapWithLock({
       userId,
       {
         oldDocs: [{ doc, path }],
-        newFiles: [{ file: fileRef, path, url: fileStoreUrl }],
+        newFiles: [{ file: fileRef, path, url: fileStoreUrl, createdBlob }],
         newProject: project,
       },
       source
@@ -1112,6 +1153,31 @@ const convertDocToFile = wrapWithLock({
   },
 })
 
+async function setMainBibliographyDoc(projectId, newBibliographyDocId) {
+  logger.debug(
+    { projectId, mainBibliographyDocId: newBibliographyDocId },
+    'setting main bibliography doc'
+  )
+  if (projectId == null || newBibliographyDocId == null) {
+    throw new Errors.InvalidError('missing arguments (project or doc)')
+  }
+  const docPath =
+    await ProjectEntityHandler.promises.getDocPathByProjectIdAndDocId(
+      projectId,
+      newBibliographyDocId
+    )
+  if (ProjectEntityUpdateHandler.isPathValidForMainBibliographyDoc(docPath)) {
+    await Project.updateOne(
+      { _id: projectId },
+      { mainBibliographyDoc_id: newBibliographyDocId }
+    ).exec()
+  } else {
+    throw new Errors.UnsupportedFileTypeError(
+      'invalid file extension for main bibliography doc'
+    )
+  }
+}
+
 const ProjectEntityUpdateHandler = {
   LOCK_NAMESPACE,
 
@@ -1122,7 +1188,11 @@ const ProjectEntityUpdateHandler = {
     'folderId',
   ]),
 
-  addFile: callbackifyMultiResult(addFile, ['fileRef', 'folderId']),
+  addFile: callbackifyMultiResult(addFile, [
+    'fileRef',
+    'folderId',
+    'createdBlob',
+  ]),
 
   addFolder: callbackifyMultiResult(addFolder, ['folder', 'parentFolderId']),
 
@@ -1154,9 +1224,13 @@ const ProjectEntityUpdateHandler = {
 
   unsetRootDoc: callbackify(unsetRootDoc),
 
+  setMainBibliographyDoc: callbackify(setMainBibliographyDoc),
+
   updateDocLines: callbackify(updateDocLines),
 
   upsertDoc: callbackifyMultiResult(upsertDoc, ['doc', 'isNew']),
+
+  appendToDoc: callbackify(appendToDoc),
 
   upsertDocWithPath: callbackifyMultiResult(upsertDocWithPath, [
     'doc',
@@ -1199,6 +1273,7 @@ const ProjectEntityUpdateHandler = {
     upsertDocWithPath,
     upsertFile,
     upsertFileWithPath,
+    appendToDocWithPath: appendToDoc,
   },
 
   async _addDocAndSendToTpds(projectId, folderId, doc) {
@@ -1271,9 +1346,15 @@ const ProjectEntityUpdateHandler = {
       })
     }
 
+    const historyId = project?.overleaf?.history?.id
+    if (!historyId) {
+      throw new OError('project does not have a history id', { projectId })
+    }
     await TpdsUpdateSender.promises.addFile({
       projectId,
+      historyId,
       fileId: fileRef._id,
+      hash: fileRef.hash,
       path: result?.path?.fileSystem,
       projectName: project.name,
       rev: fileRef.rev,
@@ -1289,7 +1370,8 @@ const ProjectEntityUpdateHandler = {
     newFileRef,
     fileStoreUrl,
     folderId,
-    source
+    source,
+    createdBlob
   ) {
     const {
       oldFileRef,
@@ -1312,6 +1394,7 @@ const ProjectEntityUpdateHandler = {
     const newFiles = [
       {
         file: updatedFileRef,
+        createdBlob,
         path: path.fileSystem,
         url: fileStoreUrl,
       },
@@ -1319,7 +1402,9 @@ const ProjectEntityUpdateHandler = {
     const projectHistoryId = project.overleaf?.history?.id
     await TpdsUpdateSender.promises.addFile({
       projectId: project._id,
+      historyId: projectHistoryId,
       fileId: updatedFileRef._id,
+      hash: updatedFileRef.hash,
       path: path.fileSystem,
       rev: updatedFileRef.rev,
       projectName: project.name,
@@ -1500,6 +1585,11 @@ const ProjectEntityUpdateHandler = {
   isPathValidForRootDoc(docPath) {
     const docExtension = Path.extname(docPath)
     return VALID_ROOT_DOC_REGEXP.test(docExtension)
+  },
+
+  isPathValidForMainBibliographyDoc(docPath) {
+    const docExtension = Path.extname(docPath).toLowerCase()
+    return docExtension === '.bib'
   },
 
   async _cleanUpEntity(

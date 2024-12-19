@@ -4,11 +4,11 @@
   Run with: node check-idp-metadata /path/idp-metadata.xml
 */
 
-const { Certificate } = require('@fidm/x509')
-const _ = require('lodash')
-const moment = require('moment')
-const fs = require('fs-extra')
-const xml2js = require('xml2js')
+import { Certificate } from '@fidm/x509'
+import _ from 'lodash'
+import moment from 'moment'
+import fs from 'fs'
+import xml2js from 'xml2js'
 
 function checkCertDates(signingKey) {
   let cert = _.get(signingKey, [
@@ -45,7 +45,7 @@ async function main() {
 
   console.log('Checking SAML metadata')
 
-  const data = await fs.readFile(file, 'utf8')
+  const data = await fs.promises.readFile(file, 'utf8')
   const parser = new xml2js.Parser()
   const xml = await parser.parseStringPromise(data)
 

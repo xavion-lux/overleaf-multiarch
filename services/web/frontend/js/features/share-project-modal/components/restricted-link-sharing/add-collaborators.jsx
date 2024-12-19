@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Form, FormGroup, FormControl, Button } from 'react-bootstrap'
 import { useMultipleSelection } from 'downshift'
 import { useShareProjectContext } from './share-project-modal'
 import SelectCollaborators from './select-collaborators'
@@ -11,6 +10,11 @@ import { useProjectContext } from '@/shared/context/project-context'
 import { sendMB } from '@/infrastructure/event-tracking'
 import ClickableElementEnhancer from '@/shared/components/clickable-element-enhancer'
 import PropTypes from 'prop-types'
+import OLForm from '@/features/ui/components/ol/ol-form'
+import OLFormGroup from '@/features/ui/components/ol/ol-form-group'
+import OLFormSelect from '@/features/ui/components/ol/ol-form-select'
+import OLButton from '@/features/ui/components/ol/ol-button'
+import getMeta from '@/utils/meta'
 
 export default function AddCollaborators({ readOnly }) {
   const [privileges, setPrivileges] = useState('readAndWrite')
@@ -146,41 +150,45 @@ export default function AddCollaborators({ readOnly }) {
   ])
 
   return (
-    <Form className="add-collabs">
-      <FormGroup>
+    <OLForm className="add-collabs">
+      <OLFormGroup>
         <SelectCollaborators
           loading={!nonMemberContacts}
           options={nonMemberContacts || []}
           placeholder="Email, comma separated"
           multipleSelectionProps={multipleSelectionProps}
         />
-      </FormGroup>
+      </OLFormGroup>
 
-      <FormGroup>
+      <OLFormGroup>
         <div className="pull-right">
-          <FormControl
-            componentClass="select"
+          <OLFormSelect
             className="privileges"
-            bsSize="sm"
             value={privileges}
             onChange={event => setPrivileges(event.target.value)}
+            bs3Props={{
+              bsSize: 'sm',
+            }}
           >
             <option disabled={readOnly} value="readAndWrite">
               {t('can_edit')}
             </option>
             <option value="readOnly">{t('can_view')}</option>
-          </FormControl>
+            {getMeta('ol-isReviewerRoleEnabled') && (
+              <option value="review">{t('can_review')}</option>
+            )}
+          </OLFormSelect>
           <span>&nbsp;&nbsp;</span>
           <ClickableElementEnhancer
-            as={Button}
+            as={OLButton}
             onClick={handleSubmit}
-            bsStyle="primary"
+            variant="primary"
           >
             {t('invite')}
           </ClickableElementEnhancer>
         </div>
-      </FormGroup>
-    </Form>
+      </OLFormGroup>
+    </OLForm>
   )
 }
 

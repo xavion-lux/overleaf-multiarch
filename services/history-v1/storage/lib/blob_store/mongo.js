@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Mongo backend for the blob store.
  *
@@ -15,7 +16,7 @@
  */
 
 const { Blob } = require('overleaf-editor-core')
-const { ObjectId, Binary } = require('mongodb')
+const { ObjectId, Binary, MongoError, ReadPreference } = require('mongodb')
 const assert = require('../assert')
 const mongodb = require('../mongodb')
 
@@ -23,7 +24,12 @@ const MAX_BLOBS_IN_BUCKET = 8
 const DUPLICATE_KEY_ERROR_CODE = 11000
 
 /**
+ * @typedef {import('mongodb').ReadPreferenceLike} ReadPreferenceLike
+ */
+
+/**
  * Set up the data structures for a given project.
+ * @param {string} projectId
  */
 async function initialize(projectId) {
   assert.mongoId(projectId, 'bad projectId')
@@ -33,14 +39,18 @@ async function initialize(projectId) {
       blobs: {},
     })
   } catch (err) {
-    if (err.code !== DUPLICATE_KEY_ERROR_CODE) {
-      throw err
+    if (err instanceof MongoError && err.code === DUPLICATE_KEY_ERROR_CODE) {
+      return // ignore already initialized case
     }
+    throw err
   }
 }
 
 /**
  * Return blob metadata for the given project and hash.
+ * @param {string} projectId
+ * @param {string} hash
+ * @return {Promise<Blob | null>}
  */
 async function findBlob(projectId, hash) {
   assert.mongoId(projectId, 'bad projectId')
@@ -69,6 +79,9 @@ async function findBlob(projectId, hash) {
 
 /**
  * Search in the sharded collection for blob metadata
+ * @param {string} projectId
+ * @param {string} hash
+ * @return {Promise<Blob | null>}
  */
 async function findBlobSharded(projectId, hash) {
   const [shard, bucket] = getShardedBucket(hash)
@@ -81,11 +94,15 @@ async function findBlobSharded(projectId, hash) {
     return null
   }
   const record = result.blobs.find(blob => blob.h.toString('hex') === hash)
+  if (!record) return null
   return recordToBlob(record)
 }
 
 /**
  * Read multiple blob metadata records by hexadecimal hashes.
+ * @param {string} projectId
+ * @param {Array<string>} hashes
+ * @return {Promise<Array<Blob>>}
  */
 async function findBlobs(projectId, hashes) {
   assert.mongoId(projectId, 'bad projectId')
@@ -135,6 +152,9 @@ async function findBlobs(projectId, hashes) {
 
 /**
  * Search in the sharded collection for blob metadata.
+ * @param {string} projectId
+ * @param {Set<string>} hashSet
+ * @return {Promise<Array<Blob>>}
  */
 async function findBlobsSharded(projectId, hashSet) {
   // Build a map of buckets by shard key
@@ -182,7 +202,112 @@ async function findBlobsSharded(projectId, hashSet) {
 }
 
 /**
+ * Return metadata for all blobs in the given project
+ */
+async function getProjectBlobs(projectId) {
+  assert.mongoId(projectId, 'bad projectId')
+
+  const result = await mongodb.blobs.findOne(
+    { _id: new ObjectId(projectId) },
+    { projection: { _id: 0 } }
+  )
+
+  if (!result) {
+    return []
+  }
+
+  // Build blobs from the query results
+  const blobs = []
+  for (const bucket of Object.values(result.blobs)) {
+    for (const record of bucket) {
+      blobs.push(recordToBlob(record))
+    }
+  }
+
+  // Look for all possible sharded blobs
+
+  const minShardedId = makeShardedId(projectId, '0')
+  const maxShardedId = makeShardedId(projectId, 'f')
+  // @ts-ignore We are using a custom _id here.
+  const shardedRecords = mongodb.shardedBlobs.find(
+    {
+      _id: { $gte: minShardedId, $lte: maxShardedId },
+    },
+    { projection: { _id: 0 } }
+  )
+
+  for await (const shardedRecord of shardedRecords) {
+    if (shardedRecord.blobs == null) {
+      continue
+    }
+    for (const bucket of Object.values(shardedRecord.blobs)) {
+      for (const record of bucket) {
+        blobs.push(recordToBlob(record))
+      }
+    }
+  }
+
+  return blobs
+}
+
+/**
+ * Return metadata for all blobs in the given project
+ * @param {Array<string>} projectIds
+ * @return {Promise<{ nBlobs: number, blobs: Map<string, Array<Blob>> }>}
+ */
+async function getProjectBlobsBatch(projectIds) {
+  for (const project of projectIds) {
+    assert.mongoId(project, 'bad projectId')
+  }
+  let nBlobs = 0
+  const blobs = new Map()
+  if (projectIds.length === 0) return { nBlobs, blobs }
+
+  // blobs
+  {
+    const cursor = await mongodb.blobs.find(
+      { _id: { $in: projectIds.map(projectId => new ObjectId(projectId)) } },
+      { readPreference: ReadPreference.secondaryPreferred }
+    )
+    for await (const record of cursor) {
+      const projectBlobs = Object.values(record.blobs).flat().map(recordToBlob)
+      blobs.set(record._id.toString(), projectBlobs)
+      nBlobs += projectBlobs.length
+    }
+  }
+
+  // sharded blobs
+  {
+    // @ts-ignore We are using a custom _id here.
+    const cursor = await mongodb.shardedBlobs.find(
+      {
+        _id: {
+          $gte: makeShardedId(projectIds[0], '0'),
+          $lte: makeShardedId(projectIds[projectIds.length - 1], 'f'),
+        },
+      },
+      { readPreference: ReadPreference.secondaryPreferred }
+    )
+    for await (const record of cursor) {
+      const recordIdHex = record._id.toString('hex')
+      const recordProjectId = recordIdHex.slice(0, 24)
+      const projectBlobs = Object.values(record.blobs).flat().map(recordToBlob)
+      const found = blobs.get(recordProjectId)
+      if (found) {
+        found.push(...projectBlobs)
+      } else {
+        blobs.set(recordProjectId, projectBlobs)
+      }
+      nBlobs += projectBlobs.length
+    }
+  }
+  return { nBlobs, blobs }
+}
+
+/**
  * Add a blob's metadata to the blobs collection after it has been uploaded.
+ * @param {string} projectId
+ * @param {Blob} blob
  */
 async function insertBlob(projectId, blob) {
   assert.mongoId(projectId, 'bad projectId')
@@ -208,6 +333,10 @@ async function insertBlob(projectId, blob) {
 
 /**
  * Add a blob's metadata to the sharded blobs collection.
+ * @param {string} projectId
+ * @param {string} hash
+ * @param {Record} record
+ * @return {Promise<void>}
  */
 async function insertRecordSharded(projectId, hash, record) {
   const [shard, bucket] = getShardedBucket(hash)
@@ -221,6 +350,7 @@ async function insertRecordSharded(projectId, hash, record) {
 
 /**
  * Delete all blobs for a given project.
+ * @param {string} projectId
  */
 async function deleteBlobs(projectId) {
   assert.mongoId(projectId, 'bad projectId')
@@ -228,12 +358,15 @@ async function deleteBlobs(projectId) {
   const minShardedId = makeShardedId(projectId, '0')
   const maxShardedId = makeShardedId(projectId, 'f')
   await mongodb.shardedBlobs.deleteMany({
+    // @ts-ignore We are using a custom _id here.
     _id: { $gte: minShardedId, $lte: maxShardedId },
   })
 }
 
 /**
  * Return the Mongo path to the bucket for the given hash.
+ * @param {string} hash
+ * @return {string}
  */
 function getBucket(hash) {
   return `blobs.${hash.slice(0, 3)}`
@@ -242,6 +375,8 @@ function getBucket(hash) {
 /**
  * Return the shard key and Mongo path to the bucket for the given hash in the
  * sharded collection.
+ * @param {string} hash
+ * @return {[string, string]}
  */
 function getShardedBucket(hash) {
   const shard = hash.slice(0, 1)
@@ -251,13 +386,25 @@ function getShardedBucket(hash) {
 
 /**
  * Create an _id key for the sharded collection.
+ * @param {string} projectId
+ * @param {string} shard
+ * @return {Binary}
  */
 function makeShardedId(projectId, shard) {
   return new Binary(Buffer.from(`${projectId}0${shard}`, 'hex'))
 }
 
 /**
+ * @typedef {Object} Record
+ * @property {Binary} h
+ * @property {number} b
+ * @property {number} [s]
+ */
+
+/**
  * Return the Mongo record for the given blob.
+ * @param {Blob} blob
+ * @return {Record}
  */
 function blobToRecord(blob) {
   const hash = blob.getHash()
@@ -272,11 +419,10 @@ function blobToRecord(blob) {
 
 /**
  * Create a blob from the given Mongo record.
+ * @param {Record} record
+ * @return {Blob}
  */
 function recordToBlob(record) {
-  if (record == null) {
-    return
-  }
   return new Blob(record.h.toString('hex'), record.b, record.s)
 }
 
@@ -284,6 +430,8 @@ module.exports = {
   initialize,
   findBlob,
   findBlobs,
+  getProjectBlobs,
+  getProjectBlobsBatch,
   insertBlob,
   deleteBlobs,
 }

@@ -44,6 +44,7 @@ export const IdeReactContext = createContext<IdeReactContextValue | undefined>(
 )
 
 function populateIdeReactScope(store: ReactScopeValueStore) {
+  store.set('settings', {})
   store.set('sync_tex_error', false)
 }
 
@@ -146,10 +147,19 @@ export const IdeReactProvider: FC = ({ children }) => {
       setProjectJoined(true)
     }
 
+    function handleMainBibliographyDocUpdated(payload: string) {
+      scopeStore.set('project.mainBibliographyDoc_id', payload)
+    }
+
     socket.on('joinProjectResponse', handleJoinProjectResponse)
+    socket.on('mainBibliographyDocUpdated', handleMainBibliographyDocUpdated)
 
     return () => {
       socket.removeListener('joinProjectResponse', handleJoinProjectResponse)
+      socket.removeListener(
+        'mainBibliographyDocUpdated',
+        handleMainBibliographyDocUpdated
+      )
     }
   }, [socket, eventEmitter, scopeStore])
 

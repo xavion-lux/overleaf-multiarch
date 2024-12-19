@@ -10,6 +10,10 @@ const Errors = require('../Errors/Errors')
 const SubscriptionErrors = require('./Errors')
 const { callbackify } = require('@overleaf/promise-utils')
 
+/**
+ * @param accountId
+ * @param newEmail
+ */
 async function updateAccountEmailAddress(accountId, newEmail) {
   const data = {
     email: newEmail,
@@ -282,6 +286,14 @@ const promises = {
       { userId: user._id },
       'starting process of creating paypal subscription'
     )
+    if (subscriptionDetails.subscription_add_ons) {
+      // TODO: support flexible licensing in paypal flow
+      const err = new Error('Add-on purchase not supported')
+      OError.tag(err, 'error in paypal subscription creation process', {
+        user_id: user._id,
+      })
+      throw err
+    }
     // We use waterfall through each of these actions in sequence
     // passing a `cache` object along the way. The cache is initialized
     // with required data, and `async.apply` to pass the cache to the first function
@@ -339,6 +351,10 @@ const promises = {
       data.account.billing_info.three_d_secure_action_result_token_id =
         recurlyTokenIds.threeDSecureActionResult
     }
+    if (subscriptionDetails.subscription_add_ons) {
+      data.subscription_add_ons = subscriptionDetails.subscription_add_ons
+    }
+
     const customFields =
       getCustomFieldsFromSubscriptionDetails(subscriptionDetails)
     if (customFields) {
@@ -814,6 +830,9 @@ const promises = {
     }
   },
 
+  /**
+   * @param xml
+   */
   _parseXml(xml) {
     function convertDataTypes(data) {
       let key, value

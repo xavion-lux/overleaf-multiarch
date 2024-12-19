@@ -47,7 +47,7 @@ class FileData {
 
   /** @see File.createHollow
    * @param {number} byteLength
-   * @param {number|null} stringLength
+   * @param {number} [stringLength]
    */
   static createHollow(byteLength, stringLength) {
     if (stringLength == null) {
@@ -63,20 +63,14 @@ class FileData {
    */
   static createLazyFromBlobs(blob, rangesBlob) {
     assert.instance(blob, Blob, 'FileData: bad blob')
-    if (blob.getStringLength() == null) {
-      return new BinaryFileData(
-        // TODO(das7pad): see call-sites
-        // @ts-ignore
-        blob.getHash(),
-        blob.getByteLength()
-      )
+    const stringLength = blob.getStringLength()
+    if (stringLength == null) {
+      return new BinaryFileData(blob.getHash(), blob.getByteLength())
     }
     return new LazyStringFileData(
-      // TODO(das7pad): see call-sites
-      // @ts-ignore
       blob.getHash(),
       rangesBlob?.getHash(),
-      blob.getStringLength()
+      stringLength
     )
   }
 

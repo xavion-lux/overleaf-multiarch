@@ -682,6 +682,7 @@ describe('ProjectEntityUpdateHandler', function () {
 
         this.newFile = {
           _id: fileId,
+          hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
           rev: 0,
           name: this.fileName,
           linkedFileData: this.linkedFileData,
@@ -689,6 +690,7 @@ describe('ProjectEntityUpdateHandler', function () {
         this.FileStoreHandler.promises.uploadFileFromDisk.resolves({
           url: this.fileUrl,
           fileRef: this.newFile,
+          createdBlob: true,
         })
         this.TpdsUpdateSender.promises.addFile.resolves()
         this.ProjectEntityMongoUpdateHandler.promises.addFile.resolves({
@@ -734,8 +736,10 @@ describe('ProjectEntityUpdateHandler', function () {
         this.TpdsUpdateSender.promises.addFile
           .calledWith({
             projectId,
+            historyId: this.project.overleaf.history.id,
             projectName: this.project.name,
             fileId,
+            hash: this.newFile.hash,
             rev: 0,
             path: this.path,
             folderId,
@@ -756,6 +760,7 @@ describe('ProjectEntityUpdateHandler', function () {
             file: this.newFile,
             path: this.path,
             url: this.fileUrl,
+            createdBlob: true,
           },
         ]
         this.DocumentUpdaterHandler.promises.updateProjectStructure.should.have.been.calledWith(
@@ -777,6 +782,7 @@ describe('ProjectEntityUpdateHandler', function () {
 
         this.newFile = {
           _id: fileId,
+          hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
           rev: 0,
           name: this.fileName,
           linkedFileData: this.linkedFileData,
@@ -835,7 +841,11 @@ describe('ProjectEntityUpdateHandler', function () {
     describe('updating an existing doc', function () {
       beforeEach(function (done) {
         this.existingDoc = { _id: docId, name: this.docName }
-        this.existingFile = { _id: fileId, name: this.fileName }
+        this.existingFile = {
+          _id: fileId,
+          name: this.fileName,
+          hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        }
         this.folder = {
           _id: folderId,
           docs: [this.existingDoc],
@@ -1090,6 +1100,7 @@ describe('ProjectEntityUpdateHandler', function () {
       this.FileStoreHandler.promises.uploadFileFromDisk.resolves({
         url: this.fileUrl,
         fileRef: this.file,
+        createdBlob: true,
       })
     })
 
@@ -1120,7 +1131,12 @@ describe('ProjectEntityUpdateHandler', function () {
     describe('updating an existing file', function () {
       beforeEach(function (done) {
         this.existingFile = { _id: fileId, name: this.fileName, rev: 1 }
-        this.newFile = { _id: new ObjectId(), name: this.fileName, rev: 3 }
+        this.newFile = {
+          _id: new ObjectId(),
+          name: this.fileName,
+          rev: 3,
+          hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        }
         this.folder = { _id: folderId, fileRefs: [this.existingFile], docs: [] }
         this.ProjectLocator.promises.findElement.resolves({
           element: this.folder,
@@ -1172,8 +1188,10 @@ describe('ProjectEntityUpdateHandler', function () {
       it('notifies the tpds', function () {
         this.TpdsUpdateSender.promises.addFile.should.have.been.calledWith({
           projectId,
+          historyId: this.project.overleaf.history.id,
           projectName: this.project.name,
           fileId: this.newFile._id,
+          hash: this.newFile.hash,
           rev: this.newFile.rev,
           path: this.fileSystemPath,
           folderId,
@@ -1199,6 +1217,7 @@ describe('ProjectEntityUpdateHandler', function () {
             file: this.newFile,
             path: this.fileSystemPath,
             url: this.fileUrl,
+            createdBlob: true,
           },
         ]
         this.DocumentUpdaterHandler.promises.updateProjectStructure.should.have.been.calledWith(
@@ -1222,13 +1241,17 @@ describe('ProjectEntityUpdateHandler', function () {
     describe('creating a new file', function () {
       beforeEach(function (done) {
         this.folder = { _id: folderId, fileRefs: [], docs: [] }
-        this.newFile = { _id: fileId }
+        this.newFile = {
+          _id: fileId,
+          hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        }
         this.ProjectLocator.promises.findElement.resolves({
           element: this.folder,
         })
         this.FileStoreHandler.promises.uploadFileFromDisk.resolves({
           url: this.fileUrl,
           fileRef: this.newFile,
+          createdBlob: true,
         })
         this.ProjectEntityUpdateHandler.promises.addFile = {
           mainTask: sinon.stub().resolves(this.newFile),
@@ -1267,6 +1290,7 @@ describe('ProjectEntityUpdateHandler', function () {
           fileRef: this.newFile,
           fileStoreUrl: this.fileUrl,
           source: this.source,
+          createdBlob: true,
         })
       })
 
@@ -1349,6 +1373,7 @@ describe('ProjectEntityUpdateHandler', function () {
         this.FileStoreHandler.promises.uploadFileFromDisk.resolves({
           url: this.newFileUrl,
           fileRef: this.newFile,
+          createdBlob: true,
         })
         this.ProjectEntityMongoUpdateHandler.promises.replaceDocWithFile.resolves(
           this.newProject
@@ -1384,6 +1409,7 @@ describe('ProjectEntityUpdateHandler', function () {
             file: this.newFile,
             path: this.path,
             url: this.newFileUrl,
+            createdBlob: true,
           },
         ]
         const updates = {
@@ -1565,6 +1591,7 @@ describe('ProjectEntityUpdateHandler', function () {
         this.FileStoreHandler.promises.uploadFileFromDisk.resolves({
           url: this.fileUrl,
           fileRef: this.newFile,
+          createdBlob: true,
         })
         this.ProjectEntityUpdateHandler.promises.mkdirp = {
           withoutLock: sinon
@@ -1609,6 +1636,7 @@ describe('ProjectEntityUpdateHandler', function () {
             fileRef: this.newFile,
             fileStoreUrl: this.fileUrl,
             source: this.source,
+            createdBlob: true,
           }
         )
       })
@@ -2889,6 +2917,7 @@ describe('ProjectEntityUpdateHandler', function () {
       this.FileStoreHandler.promises.uploadFileFromDisk.resolves({
         url: this.fileStoreUrl,
         fileRef: this.file,
+        createdBlob: true,
       })
       this.ProjectEntityMongoUpdateHandler.promises.replaceDocWithFile.resolves(
         this.project
@@ -2944,7 +2973,12 @@ describe('ProjectEntityUpdateHandler', function () {
           {
             oldDocs: [{ doc: this.doc, path: this.path }],
             newFiles: [
-              { file: this.file, path: this.path, url: this.fileStoreUrl },
+              {
+                file: this.file,
+                path: this.path,
+                url: this.fileStoreUrl,
+                createdBlob: true,
+              },
             ],
             newProject: this.project,
           },
@@ -2998,6 +3032,241 @@ describe('ProjectEntityUpdateHandler', function () {
             done()
           }
         )
+      })
+    })
+  })
+
+  describe('isPathValidForMainBibliographyDoc', function () {
+    it('should not allow other endings than .bib', function () {
+      const endings = ['.tex', '.png', '.jpg', '.pdf', '.docx', '.doc']
+      endings.forEach(ending => {
+        expect(
+          this.ProjectEntityUpdateHandler.isPathValidForMainBibliographyDoc(
+            `/foo/bar/baz${ending}`
+          )
+        ).to.be.false
+      })
+    })
+
+    it('should allow a mix of lower and uppercase letters', function () {
+      const endings = ['.bib', '.BiB', '.BIB', '.bIB']
+      endings.forEach(ending => {
+        expect(
+          this.ProjectEntityUpdateHandler.isPathValidForMainBibliographyDoc(
+            `/foo/bar/baz.${ending}`
+          )
+        ).to.be.true
+      })
+    })
+
+    it('should not allow a path without an extension', function () {
+      expect(
+        this.ProjectEntityUpdateHandler.isPathValidForMainBibliographyDoc(
+          '/foo/bar/baz'
+        )
+      ).to.be.false
+    })
+
+    it('should not allow the empty path', function () {
+      expect(
+        this.ProjectEntityUpdateHandler.isPathValidForMainBibliographyDoc('')
+      ).to.be.false
+    })
+  })
+
+  describe('setMainBibliographyDoc', function () {
+    describe('on success', function () {
+      beforeEach(function (done) {
+        this.doc = {
+          _id: new ObjectId(),
+          name: 'test.bib',
+        }
+        this.path = '/path/to/test.bib'
+        this.ProjectEntityHandler.promises.getDocPathByProjectIdAndDocId
+          .withArgs(this.project._id, this.doc._id)
+          .resolves(this.path)
+
+        this.callback = sinon.stub().callsFake(() => done())
+
+        this.ProjectEntityUpdateHandler.setMainBibliographyDoc(
+          this.project._id,
+          this.doc._id,
+          this.callback
+        )
+      })
+
+      it('should update the project with the new main bibliography doc', function () {
+        expect(this.ProjectModel.updateOne).to.have.been.calledWith(
+          { _id: this.project._id },
+          { mainBibliographyDoc_id: this.doc._id }
+        )
+      })
+    })
+
+    describe('on failure', function () {
+      describe("when document can't be found", function () {
+        beforeEach(function (done) {
+          this.doc = {
+            _id: new ObjectId(),
+            name: 'test.bib',
+          }
+          this.ProjectEntityHandler.promises.getDocPathByProjectIdAndDocId
+            .withArgs(this.project._id, this.doc._id)
+            .rejects(new Error('error'))
+
+          this.callback = sinon.stub().callsFake(() => done())
+
+          this.ProjectEntityUpdateHandler.setMainBibliographyDoc(
+            this.project._id,
+            this.doc._id,
+            this.callback
+          )
+        })
+
+        it('should call the callback with an error', function () {
+          expect(this.callback).to.have.been.calledWith(
+            sinon.match.instanceOf(Error)
+          )
+        })
+
+        it('should not update the project with the new main bibliography doc', function () {
+          expect(this.ProjectModel.updateOne).to.not.have.been.called
+        })
+      })
+
+      describe("when path is not a bib file can't be found", function () {
+        beforeEach(function (done) {
+          this.doc = {
+            _id: new ObjectId(),
+            name: 'test.bib',
+          }
+
+          this.path = '/path/to/test.tex'
+          this.ProjectEntityHandler.promises.getDocPathByProjectIdAndDocId
+            .withArgs(this.project._id, this.doc._id)
+            .resolves(this.path)
+
+          this.callback = sinon.stub().callsFake(() => done())
+
+          this.ProjectEntityUpdateHandler.setMainBibliographyDoc(
+            this.project._id,
+            this.doc._id,
+            this.callback
+          )
+        })
+
+        it('should call the callback with an error', function () {
+          expect(this.callback).to.have.been.calledWith(
+            sinon.match.instanceOf(Error)
+          )
+        })
+
+        it('should not update the project with the new main bibliography doc', function () {
+          expect(this.ProjectModel.updateOne).to.not.have.been.called
+        })
+      })
+    })
+  })
+
+  describe('appendToDoc', function () {
+    describe('when document cannot be found', function () {
+      beforeEach(function (done) {
+        this.appendedLines = ['5678', 'def']
+        this.DocumentUpdaterHandler.promises.appendToDocument = sinon.stub()
+        this.ProjectLocator.promises.findElement = sinon.stub()
+        this.ProjectLocator.promises.findElement
+          .withArgs({ project_id: projectId, element_id: docId, type: 'doc' })
+          .rejects(new Errors.NotFoundError())
+        this.ProjectEntityUpdateHandler.appendToDoc(
+          projectId,
+          docId,
+          this.appendedLines,
+          this.source,
+          userId,
+          (...args) => {
+            this.callback(...args)
+            done()
+          }
+        )
+      })
+
+      it('should not talk to DocumentUpdaterHandler', function () {
+        this.DocumentUpdaterHandler.promises.appendToDocument.should.not.have
+          .been.called
+      })
+
+      it('should throw the error', function () {
+        this.callback.should.have.been.calledWith(
+          sinon.match.instanceOf(Errors.NotFoundError)
+        )
+      })
+    })
+
+    describe('when document is found', function () {
+      beforeEach(function (done) {
+        this.appendedLines = ['5678', 'def']
+        this.DocumentUpdaterHandler.promises.appendToDocument = sinon.stub()
+        this.DocumentUpdaterHandler.promises.appendToDocument
+          .withArgs(projectId, docId, userId, this.appendedLines, this.source)
+          .resolves({ rev: 1 })
+        this.ProjectLocator.promises.findElement = sinon.stub()
+        this.ProjectLocator.promises.findElement
+          .withArgs({ project_id: projectId, element_id: docId, type: 'doc' })
+          .resolves({ element: { _id: docId } })
+        this.ProjectEntityUpdateHandler.appendToDoc(
+          projectId,
+          docId,
+          this.appendedLines,
+          this.source,
+          userId,
+          (...args) => {
+            this.callback(...args)
+            done()
+          }
+        )
+      })
+
+      it('should forward call to DocumentUpdaterHandler.appendToDocument', function () {
+        this.DocumentUpdaterHandler.promises.appendToDocument.should.have.been.calledWith(
+          projectId,
+          docId,
+          userId,
+          this.appendedLines,
+          this.source
+        )
+      })
+
+      it('should return the response from DocumentUpdaterHandler', function () {
+        this.callback.should.have.been.calledWith(null, { rev: 1 })
+      })
+    })
+
+    describe('when DocumentUpdater throws an error', function () {
+      beforeEach(function (done) {
+        this.appendedLines = ['5678', 'def']
+        this.DocumentUpdaterHandler.promises.appendToDocument = sinon.stub()
+        this.DocumentUpdaterHandler.promises.appendToDocument.rejects(
+          new Error()
+        )
+        this.ProjectLocator.promises.findElement = sinon.stub()
+        this.ProjectLocator.promises.findElement
+          .withArgs({ project_id: projectId, element_id: docId, type: 'doc' })
+          .resolves({ element: { _id: docId } })
+        this.ProjectEntityUpdateHandler.appendToDoc(
+          projectId,
+          docId,
+          this.appendedLines,
+          this.source,
+          userId,
+          (...args) => {
+            this.callback(...args)
+            done()
+          }
+        )
+      })
+
+      it('should return the response from DocumentUpdaterHandler', function () {
+        this.callback.should.have.been.calledWith(sinon.match.instanceOf(Error))
       })
     })
   })

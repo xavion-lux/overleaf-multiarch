@@ -7,6 +7,7 @@ import getMeta from '../../../utils/meta'
 import { useGroupMembersContext } from '../context/group-members-context'
 import ErrorAlert from './error-alert'
 import MembersList from './members-table/members-list'
+import { useFeatureFlag } from '@/shared/context/split-test-context'
 
 export default function GroupMembers() {
   const { isReady } = useWaitForI18n()
@@ -23,10 +24,16 @@ export default function GroupMembers() {
     paths,
   } = useGroupMembersContext()
   const [emailString, setEmailString] = useState<string>('')
+  const isFlexibleGroupLicensingFeatureFlagEnabled = useFeatureFlag(
+    'flexible-group-licensing'
+  )
 
   const groupId = getMeta('ol-groupId')
   const groupName = getMeta('ol-groupName')
   const groupSize = getMeta('ol-groupSize')
+  const canUseFlexibleLicensing = getMeta('ol-canUseFlexibleLicensing')
+  const isFlexibleGroupLicensing =
+    canUseFlexibleLicensing && isFlexibleGroupLicensingFeatureFlagEnabled
 
   const handleEmailsChange = useCallback(
     e => {
@@ -42,6 +49,43 @@ export default function GroupMembers() {
   const onAddMembersSubmit = (e: React.FormEvent<Form>) => {
     e.preventDefault()
     addMembers(emailString)
+  }
+
+  const groupSizeDetails = () => {
+    if (isFlexibleGroupLicensing) {
+      return (
+        <small data-testid="group-size-details">
+          <strong>
+            {users.length === 1
+              ? t('you_have_1_user_and_your_plan_supports_up_to_y', {
+                  groupSize,
+                })
+              : t('you_have_x_users_and_your_plan_supports_up_to_y', {
+                  addedUsersSize: users.length,
+                  groupSize,
+                })}
+          </strong>{' '}
+          <a
+            href="/user/subscription/group/add-users"
+            rel="noreferrer noopener"
+          >
+            {t('add_more_users')}.
+          </a>
+        </small>
+      )
+    }
+
+    return (
+      <small>
+        <Trans
+          i18nKey="you_have_added_x_of_group_size_y"
+          components={[<strong />, <strong />]} // eslint-disable-line react/jsx-key
+          values={{ addedUsersSize: users.length, groupSize }}
+          shouldUnescape
+          tOptions={{ interpolation: { escapeValue: true } }}
+        />
+      </small>
+    )
   }
 
   return (
@@ -60,17 +104,7 @@ export default function GroupMembers() {
           <div className="card">
             <div className="page-header">
               <div className="pull-right">
-                {selectedUsers.length === 0 && (
-                  <small>
-                    <Trans
-                      i18nKey="you_have_added_x_of_group_size_y"
-                      components={[<strong />, <strong />]} // eslint-disable-line react/jsx-key
-                      values={{ addedUsersSize: users.length, groupSize }}
-                      shouldUnescape
-                      tOptions={{ interpolation: { escapeValue: true } }}
-                    />
-                  </small>
-                )}
+                {selectedUsers.length === 0 && groupSizeDetails()}
                 {removeMemberLoading ? (
                   <Button bsStyle="danger" disabled>
                     {t('removing')}&hellip;
@@ -93,8 +127,15 @@ export default function GroupMembers() {
             </div>
             <hr />
             {users.length < groupSize && (
-              <div className="add-more-members-form">
-                <p className="small">{t('add_more_members')}</p>
+              <div
+                className="add-more-members-form"
+                data-testid="add-more-members-form"
+              >
+                <p className="small">
+                  {isFlexibleGroupLicensing
+                    ? t('invite_more_members')
+                    : t('add_more_members')}
+                </p>
                 <ErrorAlert error={inviteError} />
                 <Form horizontal onSubmit={onAddMembersSubmit} className="form">
                   <Row>
@@ -110,11 +151,14 @@ export default function GroupMembers() {
                     <Col xs={4}>
                       {inviteMemberLoading ? (
                         <Button bsStyle="primary" disabled>
-                          {t('adding')}&hellip;
+                          {isFlexibleGroupLicensing
+                            ? t('inviting')
+                            : t('adding')}
+                          &hellip;
                         </Button>
                       ) : (
                         <Button bsStyle="primary" onClick={onAddMembersSubmit}>
-                          {t('add')}
+                          {isFlexibleGroupLicensing ? t('invite') : t('add')}
                         </Button>
                       )}
                     </Col>

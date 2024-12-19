@@ -8,6 +8,9 @@ include ./_mixins/bootstrap_js
 block entrypointVar
 	- entrypoint = 'marketing'
 		
+block isApplicationPageVar
+	- isApplicationPage = true
+		
 block append meta
 	if bootstrapVersion === 5
 		- const canDisplayAdminMenu = hasAdminAccess()
@@ -16,7 +19,8 @@ block append meta
 		- const staffAccess = sessionUser?.staffAccess
 		- const canDisplaySplitTestMenu = hasFeature('saas') && (canDisplayAdminMenu || staffAccess?.splitTestMetrics || staffAccess?.splitTestManagement)
 		- const canDisplaySurveyMenu = hasFeature('saas') && canDisplayAdminMenu
-		- const enableUpgradeButton = projectDashboardReact && usersBestSubscription && usersBestSubscription.type === 'free'
+		- const enableUpgradeButton = projectDashboardReact && usersBestSubscription && (usersBestSubscription.type === 'free' || usersBestSubscription.type === 'standalone-ai-add-on')
+		- const showSignUpLink = hasFeature('registration-page')
 
 		meta(name="ol-navbar" data-type="json" content={
 			customLogo: settings.nav.custom_logo,
@@ -29,13 +33,19 @@ block append meta
 			suppressNavbarRight: !!suppressNavbarRight,
 			suppressNavContentLinks: !!suppressNavContentLinks,
 			showSubscriptionLink: nav.showSubscriptionLink,
+			showSignUpLink: showSignUpLink,
+			currentUrl: currentUrl,
 			sessionUser: sessionUser ? { email: sessionUser.email} : undefined,
 			adminUrl: settings.adminUrl,
 			items: cloneAndTranslateText(nav.header_extras)
 		})
 		meta(name="ol-footer" data-type="json" content={
+			showThinFooter: showThinFooter,
+			showPoweredBy: !hasFeature('saas') && !settings.nav.hide_powered_by,
 			subdomainLang: settings.i18n.subdomainLang,
-			translatedLanguages: settings.translatedLanguages
+			translatedLanguages: settings.translatedLanguages,
+			leftItems: cloneAndTranslateText(settings.nav.left_footer),
+			rightItems: settings.nav.right_footer
 		})
 
 block body
@@ -49,7 +59,10 @@ block body
 
 	if (typeof suppressFooter === "undefined")
 		if showThinFooter
-			include layout/footer-marketing
+			if bootstrapVersion === 5
+				include layout/thin-footer-bootstrap-5
+			else
+				include layout/thin-footer
 		else
 			if bootstrapVersion === 5
 				include layout/fat-footer-react-bootstrap-5

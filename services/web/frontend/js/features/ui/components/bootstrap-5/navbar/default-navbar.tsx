@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { sendMB } from '@/infrastructure/event-tracking'
 import { useTranslation } from 'react-i18next'
 import { Button, Container, Nav, Navbar } from 'react-bootstrap-5'
@@ -6,14 +7,12 @@ import AdminMenu from '@/features/ui/components/bootstrap-5/navbar/admin-menu'
 import type { DefaultNavbarMetadata } from '@/features/ui/components/types/default-navbar-metadata'
 import NavItemFromData from '@/features/ui/components/bootstrap-5/navbar/nav-item-from-data'
 import LoggedInItems from '@/features/ui/components/bootstrap-5/navbar/logged-in-items'
+import LoggedOutItems from '@/features/ui/components/bootstrap-5/navbar/logged-out-items'
 import HeaderLogoOrTitle from '@/features/ui/components/bootstrap-5/navbar/header-logo-or-title'
 import MaterialIcon from '@/shared/components/material-icon'
 import { useContactUsModal } from '@/shared/hooks/use-contact-us-modal'
 import { UserProvider } from '@/shared/context/user-context'
-
-function LoggedOutItems() {
-  return <span>Logged out</span>
-}
+import { X } from '@phosphor-icons/react'
 
 function DefaultNavbar(props: DefaultNavbarMetadata) {
   const {
@@ -26,13 +25,16 @@ function DefaultNavbar(props: DefaultNavbarMetadata) {
     enableUpgradeButton,
     suppressNavbarRight,
     suppressNavContentLinks,
+    showCloseIcon = false,
     showSubscriptionLink,
+    showSignUpLink,
     sessionUser,
     adminUrl,
     items,
   } = props
   const { t } = useTranslation()
   const { isReady } = useWaitForI18n()
+  const [expanded, setExpanded] = useState(false)
 
   // The Contact Us modal is rendered at this level rather than inside the nav
   // bar because otherwise the help wiki search results dropdown doesn't show up
@@ -47,7 +49,11 @@ function DefaultNavbar(props: DefaultNavbarMetadata) {
 
   return (
     <>
-      <Navbar className="navbar-default navbar-main" expand="lg">
+      <Navbar
+        className="navbar-default navbar-main"
+        expand="lg"
+        onToggle={expanded => setExpanded(expanded)}
+      >
         <Container className="navbar-container" fluid>
           <div className="navbar-header">
             <HeaderLogoOrTitle title={title} customLogo={customLogo} />
@@ -76,7 +82,11 @@ function DefaultNavbar(props: DefaultNavbarMetadata) {
                 aria-expanded="false"
                 aria-label={t('main_navigation')}
               >
-                <MaterialIcon type="menu" />
+                {showCloseIcon && expanded ? (
+                  <X />
+                ) : (
+                  <MaterialIcon type="menu" />
+                )}
               </Navbar.Toggle>
               <Navbar.Collapse
                 id="navbar-main-collapse"
@@ -117,7 +127,7 @@ function DefaultNavbar(props: DefaultNavbarMetadata) {
                       showSubscriptionLink={showSubscriptionLink}
                     />
                   ) : (
-                    <LoggedOutItems />
+                    <LoggedOutItems showSignUpLink={showSignUpLink} />
                   )}
                 </Nav>
               </Navbar.Collapse>

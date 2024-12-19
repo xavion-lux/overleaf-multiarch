@@ -187,6 +187,7 @@ describe('editor', () => {
       createProject(`project-${uuid()}`, { type: 'Example Project' })
       // wait until the main document is rendered
       cy.findByText(/Loading/).should('not.exist')
+      cy.findByText(/Your Paper/)
     })
 
     it('renders jpg', () => {
@@ -305,7 +306,7 @@ describe('editor', () => {
       cy.findByText('Layout').click()
       cy.findByText('Editor only').click()
 
-      cy.get('.pdf-viewer').should('not.exist')
+      cy.get('.pdf-viewer').should('not.be.visible')
       cy.get('.cm-editor').should('be.visible')
 
       cy.findByText('Switch to PDF').click()
@@ -315,7 +316,7 @@ describe('editor', () => {
 
       cy.findByText('Switch to editor').click()
 
-      cy.get('.pdf-viewer').should('not.exist')
+      cy.get('.pdf-viewer').should('not.be.visible')
       cy.get('.cm-editor').should('be.visible')
     })
 

@@ -9,10 +9,6 @@ logger.initialize('document-updater')
 
 logger.logger.addSerializers(require('./app/js/LoggerSerializers'))
 
-if (Settings.sentry != null && Settings.sentry.dsn != null) {
-  logger.initializeErrorReporting(Settings.sentry.dsn)
-}
-
 const RedisManager = require('./app/js/RedisManager')
 const DispatchManager = require('./app/js/DispatchManager')
 const DeleteQueueManager = require('./app/js/DeleteQueueManager')
@@ -149,6 +145,7 @@ app.post(
 )
 app.post('/project/:project_id/clearState', HttpController.clearProjectState)
 app.post('/project/:project_id/doc/:doc_id', HttpController.setDoc)
+app.post('/project/:project_id/doc/:doc_id/append', HttpController.appendToDoc)
 app.post(
   '/project/:project_id/doc/:doc_id/flush',
   HttpController.flushDocIfLoaded
@@ -187,7 +184,6 @@ app.delete(
 app.post('/project/:project_id/block', HttpController.blockProject)
 app.post('/project/:project_id/unblock', HttpController.unblockProject)
 
-app.get('/flush_all_projects', HttpController.flushAllProjects)
 app.get('/flush_queued_projects', HttpController.flushQueuedProjects)
 
 app.get('/total', (req, res, next) => {

@@ -1,7 +1,6 @@
 import { FC, useCallback } from 'react'
 import useIsMounted from '@/shared/hooks/use-is-mounted'
 import { useFileTreePathContext } from '@/features/file-tree/contexts/file-tree-path'
-import { debugConsole } from '@/utils/debugging'
 
 const FileViewPdf: FC<{
   fileId: string
@@ -15,13 +14,12 @@ const FileViewPdf: FC<{
   const handleContainer = useCallback(
     async (element: HTMLDivElement | null) => {
       if (element) {
-        const { PDFJS } = await import(
-          '../../pdf-preview/util/pdf-js-versions'
-        ).then(m => m.default as any)
+        const { loadPdfDocumentFromUrl } = await import(
+          '@/features/pdf-preview/util/pdf-js'
+        )
 
         // bail out if loading PDF.js took too long
         if (!mountedRef.current) {
-          onError()
           return
         }
 
@@ -33,14 +31,10 @@ const FileViewPdf: FC<{
           return
         }
 
-        const pdf = await PDFJS.getDocument({
-          url: preview.url,
-          isEvalSupported: false,
-        }).promise
+        const pdf = await loadPdfDocumentFromUrl(preview.url).promise
 
         // bail out if loading the PDF took too long
         if (!mountedRef.current) {
-          onError()
           return
         }
 
@@ -50,6 +44,12 @@ const FileViewPdf: FC<{
 
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i)
+
+          // bail out if the component has been unmounted
+          if (!mountedRef.current) {
+            return
+          }
+
           const viewport = page.getViewport({ scale })
 
           const canvas = document.createElement('canvas')
@@ -61,17 +61,12 @@ const FileViewPdf: FC<{
 
           element.append(canvas)
           page.render({
-            canvasContext: canvas.getContext('2d'),
+            canvasContext: canvas.getContext('2d')!,
             viewport,
           })
         }
 
         onLoad()
-
-        return () => {
-          pdf.cleanup().catch(debugConsole.error)
-          pdf.destroy()
-        }
       }
     },
     [mountedRef, pathInFolder, fileId, previewByPath, onLoad, onError]

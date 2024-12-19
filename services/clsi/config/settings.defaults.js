@@ -1,6 +1,10 @@
-const Path = require('path')
-const os = require('os')
+const Path = require('node:path')
+const os = require('node:os')
+const http = require('node:http')
+const https = require('node:https')
 
+http.globalAgent.keepAlive = false
+https.globalAgent.keepAlive = false
 const isPreEmptible = os.hostname().includes('pre-emp')
 
 module.exports = {
@@ -56,10 +60,6 @@ module.exports = {
   texliveImageNameOveride: process.env.TEX_LIVE_IMAGE_NAME_OVERRIDE,
   texliveOpenoutAny: process.env.TEXLIVE_OPENOUT_ANY,
   texliveMaxPrintLine: process.env.TEXLIVE_MAX_PRINT_LINE,
-  sentry: {
-    dsn: process.env.SENTRY_DSN,
-  },
-
   enablePdfCaching: process.env.ENABLE_PDF_CACHING === 'true',
   enablePdfCachingDark: process.env.ENABLE_PDF_CACHING_DARK === 'true',
   pdfCachingMinChunkSize:
@@ -131,7 +131,7 @@ if (process.env.DOCKER_RUNNER) {
   try {
     seccompProfilePath = Path.resolve(__dirname, '../seccomp/clsi-profile.json')
     module.exports.clsi.docker.seccomp_profile = JSON.stringify(
-      JSON.parse(require('fs').readFileSync(seccompProfilePath))
+      JSON.parse(require('node:fs').readFileSync(seccompProfilePath))
     )
   } catch (error) {
     console.error(

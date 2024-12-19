@@ -1,12 +1,41 @@
+$dropdown-item-min-height: 36px;
+
 .dropdown {
   display: inline-flex;
+
+  .no-left-border {
+    border-left: none;
+  }
+
+  .custom-toggle {
+    &::after {
+      content: none !important;
+    }
+
+    padding-left: var(--spacing-04);
+    padding-right: var(--spacing-05);
+    display: flex;
+    align-items: center;
+  }
 }
 
 .dropdown-header {
   @include body-xs;
 
+  display: flex;
+  align-items: center;
+  min-height: $dropdown-item-min-height; // a minimum height of 36px to be accessible for touch screens
   padding: var(--spacing-05) var(--spacing-06) var(--spacing-02)
     var(--spacing-04);
+}
+
+.dropdown-menu.dropdown-menu-unpositioned {
+  position: unset;
+  top: unset;
+  left: unset;
+  z-index: unset;
+  display: block;
+  float: unset;
 }
 
 .dropdown-menu {
@@ -31,7 +60,7 @@
   display: grid;
   grid-auto-flow: column;
   place-content: center start;
-  min-height: 44px; // a minimum height of 44px to be accessible for touch screens
+  min-height: $dropdown-item-min-height; // a minimum height of 36px to be accessible for touch screens
   position: relative;
 
   &:active {
@@ -85,11 +114,14 @@
 
   color: var(--content-secondary);
   margin-top: var(--spacing-01);
+  text-wrap: wrap;
 }
 
 .dropdown-item-description-container {
   grid-auto-flow: row;
-  min-height: 60px;
+  min-height: 44px;
+  display: grid;
+  place-content: center start;
 }
 
 .dropdown-item-trailing-icon {
@@ -100,6 +132,8 @@
 }
 
 .dropdown-item-leading-icon {
+  display: flex;
+  align-items: center;
   padding-right: var(--spacing-04);
 
   &.spinner {
@@ -138,6 +172,7 @@
   border-top-left-radius: 0;
   padding-right: var(--spacing-05);
   padding-left: var(--spacing-05);
+  margin-left: 0;
 
   &.btn-primary,
   &.btn-danger {
@@ -165,4 +200,16 @@
 
 .dropdown-item-highlighted {
   background-color: var(--bg-light-secondary);
+}
+
+.dropdown-item-material-icon-small {
+  .material-symbols,
+  &.material-symbols {
+    font-size: var(--bs-body-font-size);
+
+    // Centre the symbol in a 20px-by-20px box
+    width: 20px;
+    line-height: 20px;
+    text-align: center;
+  }
 }

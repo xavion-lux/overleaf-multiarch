@@ -1132,6 +1132,7 @@ describe('DocumentUpdaterHandler', function () {
               hash: undefined,
               ranges: undefined,
               metadata: undefined,
+              createdBlob: false,
             },
           ]
 
@@ -1184,6 +1185,7 @@ describe('DocumentUpdaterHandler', function () {
               historyRangesSupport: false,
               hash: '12345',
               ranges: undefined,
+              createdBlob: false,
               metadata: undefined,
             },
           ]
@@ -1296,6 +1298,7 @@ describe('DocumentUpdaterHandler', function () {
               hash: undefined,
               ranges: undefined,
               metadata: undefined,
+              createdBlob: false,
             },
           ]
 
@@ -1398,6 +1401,7 @@ describe('DocumentUpdaterHandler', function () {
               hash: undefined,
               ranges: this.ranges,
               metadata: undefined,
+              createdBlob: false,
             },
           ]
 
@@ -1444,6 +1448,7 @@ describe('DocumentUpdaterHandler', function () {
               hash: undefined,
               ranges: this.ranges,
               metadata: undefined,
+              createdBlob: false,
             },
           ]
 
@@ -1601,6 +1606,98 @@ describe('DocumentUpdaterHandler', function () {
           done()
         }
       )
+    })
+  })
+
+  describe('appendToDocument', function () {
+    describe('successfully', function () {
+      beforeEach(function () {
+        this.body = {
+          rev: 1,
+        }
+        this.request.callsArgWith(1, null, { statusCode: 200 }, this.body)
+        this.handler.appendToDocument(
+          this.project_id,
+          this.doc_id,
+          this.user_id,
+          this.lines,
+          this.source,
+          this.callback
+        )
+      })
+
+      it('should append to the document in the document updater', function () {
+        this.request
+          .calledWith({
+            url: `${this.settings.apis.documentupdater.url}/project/${this.project_id}/doc/${this.doc_id}/append`,
+            json: {
+              lines: this.lines,
+              source: this.source,
+              user_id: this.user_id,
+            },
+            method: 'POST',
+            timeout: 30 * 1000,
+          })
+          .should.equal(true)
+      })
+
+      it('should call the callback with no error', function () {
+        this.callback.calledWith(null).should.equal(true)
+      })
+    })
+
+    describe('when the document updater API returns an error', function () {
+      beforeEach(function () {
+        this.request.callsArgWith(
+          1,
+          new Error('something went wrong'),
+          null,
+          null
+        )
+        this.handler.appendToDocument(
+          this.project_id,
+          this.doc_id,
+          this.user_id,
+          this.lines,
+          this.source,
+          this.callback
+        )
+      })
+
+      it('should return an error to the callback', function () {
+        this.callback
+          .calledWith(sinon.match.instanceOf(Error))
+          .should.equal(true)
+      })
+    })
+
+    describe('when the document updater returns a failure error code', function () {
+      beforeEach(function () {
+        this.request.callsArgWith(1, null, { statusCode: 500 }, '')
+        this.handler.appendToDocument(
+          this.project_id,
+          this.doc_id,
+          this.user_id,
+          this.lines,
+          this.source,
+          this.callback
+        )
+      })
+
+      it('should return the callback with an error', function () {
+        this.callback
+          .calledWith(
+            sinon.match
+              .instanceOf(Error)
+              .and(
+                sinon.match.has(
+                  'message',
+                  'document updater returned a failure status code: 500'
+                )
+              )
+          )
+          .should.equal(true)
+      })
     })
   })
 })

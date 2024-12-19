@@ -3,7 +3,7 @@ import { useProjectContext } from '../../../shared/context/project-context'
 import { debugConsole } from '@/utils/debugging'
 import useAbortController from '../../../shared/hooks/use-abort-controller'
 import { BinaryFile } from '@/features/file-view/types/binary-file'
-import { useSnapshotContext } from '@/features/ide-react/context/snapshot-context'
+import { fileUrl } from '../../utils/fileUrl'
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024
 
@@ -17,7 +17,6 @@ export default function FileViewText({
   onError: () => void
 }) {
   const { _id: projectId } = useProjectContext()
-  const { fileTreeFromHistory } = useSnapshotContext()
 
   const [textPreview, setTextPreview] = useState('')
   const [shouldShowDots, setShouldShowDots] = useState(false)
@@ -30,9 +29,7 @@ export default function FileViewText({
     if (inFlight) {
       return
     }
-    let path = fileTreeFromHistory
-      ? `/project/${projectId}/blob/${file.hash}`
-      : `/project/${projectId}/file/${file.id}`
+    const path = fileUrl(projectId, file.id, file.hash)
     const fetchContentLengthTimeout = setTimeout(
       () => fetchContentLengthController.abort(),
       10000
@@ -45,32 +42,27 @@ export default function FileViewText({
       })
       .then(fileSize => {
         let truncated = false
-        let maxSize = null
+        const headers = new Headers()
         if (fileSize && Number(fileSize) > MAX_FILE_SIZE) {
           truncated = true
-          maxSize = MAX_FILE_SIZE
-        }
-
-        if (maxSize != null) {
-          path += `?range=0-${maxSize}`
+          headers.set('Range', `bytes=0-${MAX_FILE_SIZE}`)
         }
         fetchDataTimeout = window.setTimeout(
           () => fetchDataController.abort(),
           60000
         )
-        return fetch(path, { signal: fetchDataController.signal }).then(
-          response => {
-            return response.text().then(text => {
-              if (truncated) {
-                text = text.replace(/\n.*$/, '')
-              }
+        const signal = fetchDataController.signal
+        return fetch(path, { signal, headers }).then(response => {
+          return response.text().then(text => {
+            if (truncated) {
+              text = text.replace(/\n.*$/, '')
+            }
 
-              setTextPreview(text)
-              onLoad()
-              setShouldShowDots(truncated)
-            })
-          }
-        )
+            setTextPreview(text)
+            onLoad()
+            setShouldShowDots(truncated)
+          })
+        })
       })
       .catch(err => {
         debugConsole.error('Error fetching file contents', err)
@@ -82,7 +74,6 @@ export default function FileViewText({
         clearTimeout(fetchDataTimeout)
       })
   }, [
-    fileTreeFromHistory,
     projectId,
     file.id,
     file.hash,
@@ -93,15 +84,13 @@ export default function FileViewText({
     fetchDataController,
   ])
   return (
-    <div>
-      {textPreview && (
-        <div className="text-preview">
-          <div className="scroll-container">
-            <p>{textPreview}</p>
-            {shouldShowDots && <p>...</p>}
-          </div>
+    Boolean(textPreview) && (
+      <div className="text-preview">
+        <div className="scroll-container">
+          <p>{textPreview}</p>
+          {shouldShowDots && <p>...</p>}
         </div>
-      )}
-    </div>
+      </div>
+    )
   )
 }

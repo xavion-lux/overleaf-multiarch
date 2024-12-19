@@ -2,6 +2,7 @@ let HistoryController
 const OError = require('@overleaf/o-error')
 const async = require('async')
 const logger = require('@overleaf/logger')
+const metrics = require('@overleaf/metrics')
 const request = require('request')
 const settings = require('@overleaf/settings')
 const SessionManager = require('../Authentication/SessionManager')
@@ -11,12 +12,93 @@ const Errors = require('../Errors/Errors')
 const HistoryManager = require('./HistoryManager')
 const ProjectDetailsHandler = require('../Project/ProjectDetailsHandler')
 const ProjectEntityUpdateHandler = require('../Project/ProjectEntityUpdateHandler')
+const ProjectLocator = require('../Project/ProjectLocator')
 const RestoreManager = require('./RestoreManager')
 const { pipeline } = require('stream')
+const Stream = require('stream')
 const { prepareZipAttachment } = require('../../infrastructure/Response')
 const Features = require('../../infrastructure/Features')
+const { expressify } = require('@overleaf/promise-utils')
+
+async function getBlob(req, res) {
+  await requestBlob('GET', req, res)
+}
+
+async function headBlob(req, res) {
+  await requestBlob('HEAD', req, res)
+}
+
+async function requestBlob(method, req, res) {
+  const { project_id: projectId, hash } = req.params
+  const range = req.get('Range')
+  let url, stream, source, contentLength
+  try {
+    ;({ url, stream, source, contentLength } =
+      await HistoryManager.promises.requestBlobWithFallback(
+        projectId,
+        hash,
+        req.query.fallback,
+        method,
+        range
+      ))
+  } catch (err) {
+    if (err instanceof Errors.NotFoundError) return res.status(404).end()
+    throw err
+  }
+  res.appendHeader('X-Served-By', source)
+
+  // allow the browser to cache these immutable files
+  // note: both "private" and "max-age" appear to be required for caching
+  res.setHeader('Cache-Control', 'private, max-age=3600')
+
+  if (contentLength) res.setHeader('Content-Length', contentLength) // set on HEAD
+  res.setHeader('Content-Type', 'application/octet-stream')
+
+  try {
+    await Stream.promises.pipeline(stream, res)
+  } catch (err) {
+    // If the downstream request is cancelled, we get an
+    // ERR_STREAM_PREMATURE_CLOSE, ignore these "errors".
+    if (err?.code === 'ERR_STREAM_PREMATURE_CLOSE') return
+
+    logger.warn({ err, url, method, range }, 'streaming blob error')
+    throw err
+  }
+}
 
 module.exports = HistoryController = {
+  getBlob: expressify(getBlob),
+  headBlob: expressify(headBlob),
+
+  /** Middleware to translate fileId requests to use the blob API.
+   *
+   *  e.g. incoming requests to /project/:project_id/file/:file_id are
+   *  internally redirected to /project/:project_id/blob/:hash if the file
+   *  has a hash.
+   * */
+  fileToBlobRedirectMiddleware(req, res, next) {
+    const projectId = req.params.Project_id
+    const fileId = req.params.File_id
+    ProjectLocator.findElement(
+      { project_id: projectId, element_id: fileId, type: 'file' },
+      (err, file) => {
+        if (err) {
+          return next(err)
+        }
+        metrics.inc('fileToBlobRedirectMiddleware', 1, {
+          method: req.method,
+          status: Boolean(file?.hash),
+        })
+        if (file?.hash) {
+          req.url = `/project/${projectId}/blob/${file.hash}`
+          next('route') // redirect to blob route
+        } else {
+          next() // continue with file route
+        }
+      }
+    )
+  },
+
   proxyToHistoryApi(req, res, next) {
     const userId = SessionManager.getLoggedInUserId(req.session)
     const url = settings.apis.project_history.url + req.url
@@ -36,30 +118,6 @@ module.exports = HistoryController = {
         next(err)
       }
     })
-  },
-
-  getBlob(req, res, next) {
-    const { project_id: projectId, blob } = req.params
-
-    ProjectGetter.getProject(
-      projectId,
-      { 'overleaf.history.id': true },
-      (err, project) => {
-        if (err) return next(err)
-
-        const url = new URL(settings.apis.project_history.url)
-        url.pathname = `/project/${project.overleaf.history.id}/blob/${blob}`
-
-        pipeline(request(url.href), res, err => {
-          // If the downstream request is cancelled, we get an
-          // ERR_STREAM_PREMATURE_CLOSE.
-          if (err && err.code !== 'ERR_STREAM_PREMATURE_CLOSE') {
-            logger.warn({ url, err }, 'history API error')
-            next(err)
-          }
-        })
-      }
-    )
   },
 
   proxyToHistoryApiAndInjectUserDetails(req, res, next) {
@@ -196,8 +254,8 @@ module.exports = HistoryController = {
     HistoryController._makeRequest(
       {
         method: 'POST',
-        url: `${settings.apis.project_history.url}/project/${projectId}/user/${userId}/labels`,
-        json: { comment, version },
+        url: `${settings.apis.project_history.url}/project/${projectId}/labels`,
+        json: { comment, version, user_id: userId },
       },
       function (err, label) {
         if (err) {
@@ -215,7 +273,9 @@ module.exports = HistoryController = {
 
   _enrichLabel(label, callback) {
     if (!label.user_id) {
-      return callback(null, label)
+      const newLabel = Object.assign({}, label)
+      newLabel.user_display_name = HistoryController._displayNameForUser(null)
+      return callback(null, newLabel)
     }
     UserGetter.getUser(
       label.user_id,
@@ -237,7 +297,8 @@ module.exports = HistoryController = {
     }
     const uniqueUsers = new Set(labels.map(label => label.user_id))
 
-    // For backwards compatibility expect missing user_id fields
+    // For backwards compatibility, and for anonymously created labels in SP
+    // expect missing user_id fields
     uniqueUsers.delete(undefined)
 
     if (!uniqueUsers.size) {
@@ -255,7 +316,6 @@ module.exports = HistoryController = {
 
         labels.forEach(label => {
           const user = users.get(label.user_id)
-          if (!user) return
           label.user_display_name = HistoryController._displayNameForUser(user)
         })
         callback(null, labels)

@@ -108,6 +108,26 @@ const EditorController = {
     )
   },
 
+  appendToDoc(projectId, docId, docLines, source, userId, callback) {
+    ProjectEntityUpdateHandler.appendToDoc(
+      projectId,
+      docId,
+      docLines,
+      source,
+      userId,
+      function (err, doc) {
+        if (err) {
+          OError.tag(err, 'error appending to doc', {
+            projectId,
+            docId,
+          })
+          return callback(err)
+        }
+        callback(err, doc)
+      }
+    )
+  },
+
   upsertDoc(projectId, folderId, docName, docLines, source, userId, callback) {
     ProjectEntityUpdateHandler.upsertDoc(
       projectId,
@@ -608,6 +628,24 @@ const EditorController = {
           projectId,
           'rootDocUpdated',
           newRootDocID
+        )
+        callback()
+      }
+    )
+  },
+
+  setMainBibliographyDoc(projectId, newBibliographyDocId, callback) {
+    ProjectEntityUpdateHandler.setMainBibliographyDoc(
+      projectId,
+      newBibliographyDocId,
+      function (err) {
+        if (err) {
+          return callback(err)
+        }
+        EditorRealTimeController.emitToRoom(
+          projectId,
+          'mainBibliographyDocUpdated',
+          newBibliographyDocId
         )
         callback()
       }

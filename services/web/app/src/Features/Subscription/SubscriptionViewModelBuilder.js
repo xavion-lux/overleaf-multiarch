@@ -2,6 +2,7 @@
 const Settings = require('@overleaf/settings')
 const RecurlyWrapper = require('./RecurlyWrapper')
 const PlansLocator = require('./PlansLocator')
+const { isStandaloneAiAddOnPlanCode } = require('./RecurlyEntities')
 const SubscriptionFormatters = require('./SubscriptionFormatters')
 const SubscriptionLocator = require('./SubscriptionLocator')
 const SubscriptionUpdater = require('./SubscriptionUpdater')
@@ -250,17 +251,13 @@ async function buildUsersSubscriptionViewModel(
     // Note: tax_in_cents already includes the tax for any addon.
     let addOnPrice = 0
     let additionalLicenses = 0
-    if (
-      plan.membersLimitAddOn &&
-      Array.isArray(recurlySubscription.subscription_add_ons)
-    ) {
-      recurlySubscription.subscription_add_ons.forEach(addOn => {
-        if (addOn.add_on_code === plan.membersLimitAddOn) {
-          addOnPrice += addOn.quantity * addOn.unit_amount_in_cents
-          additionalLicenses += addOn.quantity
-        }
-      })
-    }
+    const addOns = recurlySubscription.subscription_add_ons || []
+    addOns.forEach(addOn => {
+      addOnPrice += addOn.quantity * addOn.unit_amount_in_cents
+      if (addOn.add_on_code === plan.membersLimitAddOn) {
+        additionalLicenses += addOn.quantity
+      }
+    })
     const totalLicenses = (plan.membersLimit || 0) + additionalLicenses
     personalSubscription.recurly = {
       tax,
@@ -270,13 +267,17 @@ async function buildUsersSubscriptionViewModel(
       billingDetailsLink: buildHostedLink('billing-details'),
       accountManagementLink: buildHostedLink('account-management'),
       additionalLicenses,
+      addOns,
       totalLicenses,
-      nextPaymentDueAt: SubscriptionFormatters.formatDate(
+      nextPaymentDueAt: SubscriptionFormatters.formatDateTime(
+        recurlySubscription.current_period_ends_at
+      ),
+      nextPaymentDueDate: SubscriptionFormatters.formatDate(
         recurlySubscription.current_period_ends_at
       ),
       currency: recurlySubscription.currency,
       state: recurlySubscription.state,
-      trialEndsAtFormatted: SubscriptionFormatters.formatDate(
+      trialEndsAtFormatted: SubscriptionFormatters.formatDateTime(
         recurlySubscription.trial_ends_at
       ),
       trial_ends_at: recurlySubscription.trial_ends_at,
@@ -296,24 +297,18 @@ async function buildUsersSubscriptionViewModel(
       let pendingAddOnTax = 0
       let pendingAddOnPrice = 0
       if (recurlySubscription.pending_subscription.subscription_add_ons) {
-        if (
-          pendingPlan.membersLimitAddOn &&
-          Array.isArray(
-            recurlySubscription.pending_subscription.subscription_add_ons
-          )
-        ) {
-          recurlySubscription.pending_subscription.subscription_add_ons.forEach(
-            addOn => {
-              if (addOn.add_on_code === pendingPlan.membersLimitAddOn) {
-                pendingAddOnPrice += addOn.quantity * addOn.unit_amount_in_cents
-                pendingAdditionalLicenses += addOn.quantity
-              }
-            }
-          )
-        }
+        const pendingRecurlyAddons =
+          recurlySubscription.pending_subscription.subscription_add_ons
+        pendingRecurlyAddons.forEach(addOn => {
+          pendingAddOnPrice += addOn.quantity * addOn.unit_amount_in_cents
+          if (addOn.add_on_code === pendingPlan.membersLimitAddOn) {
+            pendingAdditionalLicenses += addOn.quantity
+          }
+        })
         // Need to calculate tax ourselves as we don't get tax amounts for pending subs
         pendingAddOnTax =
           personalSubscription.recurly.taxRate * pendingAddOnPrice
+        pendingPlan.addOns = pendingRecurlyAddons
       }
       const pendingSubscriptionTax =
         personalSubscription.recurly.taxRate *
@@ -425,16 +420,25 @@ async function getBestSubscription(user) {
     }
   }
   if (individualSubscription && !individualSubscription.groupPlan) {
-    const plan = PlansLocator.findLocalPlanInSettings(
-      individualSubscription.planCode
-    )
-    if (_isPlanEqualOrBetter(plan, bestSubscription.plan)) {
-      const remainingTrialDays = _getRemainingTrialDays(individualSubscription)
-      bestSubscription = {
-        type: 'individual',
-        subscription: individualSubscription,
-        plan,
-        remainingTrialDays,
+    if (
+      isStandaloneAiAddOnPlanCode(individualSubscription.planCode) &&
+      bestSubscription.type === 'free'
+    ) {
+      bestSubscription = { type: 'standalone-ai-add-on' }
+    } else {
+      const plan = PlansLocator.findLocalPlanInSettings(
+        individualSubscription.planCode
+      )
+      if (_isPlanEqualOrBetter(plan, bestSubscription.plan)) {
+        const remainingTrialDays = _getRemainingTrialDays(
+          individualSubscription
+        )
+        bestSubscription = {
+          type: 'individual',
+          subscription: individualSubscription,
+          plan,
+          remainingTrialDays,
+        }
       }
     }
   }

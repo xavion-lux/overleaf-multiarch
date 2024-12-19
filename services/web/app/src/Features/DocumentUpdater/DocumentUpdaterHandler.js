@@ -10,6 +10,9 @@ const { promisifyMultiResult } = require('@overleaf/promise-utils')
 const ProjectGetter = require('../Project/ProjectGetter')
 const FileStoreHandler = require('../FileStore/FileStoreHandler')
 
+/**
+ * @param {string} projectId
+ */
 function flushProjectToMongo(projectId, callback) {
   _makeRequest(
     {
@@ -29,6 +32,9 @@ function flushMultipleProjectsToMongo(projectIds, callback) {
   async.series(jobs, callback)
 }
 
+/**
+ * @param {string} projectId
+ */
 function flushProjectToMongoAndDelete(projectId, callback) {
   _makeRequest(
     {
@@ -104,6 +110,23 @@ function setDocument(projectId, docId, userId, docLines, source, callback) {
     },
     projectId,
     'set-document',
+    callback
+  )
+}
+
+function appendToDocument(projectId, docId, userId, lines, source, callback) {
+  _makeRequest(
+    {
+      path: `/project/${projectId}/doc/${docId}/append`,
+      method: 'POST',
+      json: {
+        lines,
+        source,
+        user_id: userId,
+      },
+    },
+    projectId,
+    'append-to-document',
     callback
   )
 }
@@ -484,6 +507,7 @@ function _getUpdates(
         url: newEntity.url,
         hash: newEntity.file != null ? newEntity.file.hash : undefined,
         metadata: buildFileMetadataForHistory(newEntity.file),
+        createdBlob: newEntity.createdBlob ?? false,
       })
     } else if (newEntity.path !== oldEntity.path) {
       // entity renamed
@@ -526,6 +550,7 @@ module.exports = {
   deleteDoc,
   getDocument,
   setDocument,
+  appendToDocument,
   getProjectDocsIfMatch,
   clearProjectState,
   acceptChanges,
@@ -559,5 +584,6 @@ module.exports = {
     blockProject: promisify(blockProject),
     unblockProject: promisify(unblockProject),
     updateProjectStructure: promisify(updateProjectStructure),
+    appendToDocument: promisify(appendToDocument),
   },
 }
